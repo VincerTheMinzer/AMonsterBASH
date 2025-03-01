@@ -160,6 +160,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
         );
       });
     }
+    
+    // Draw command description at the bottom of the console
+    if (gameState.lastCommandDescription) {
+      ctx.font = '14px monospace';
+      ctx.fillStyle = '#a6e3a1';
+      ctx.textAlign = 'left';
+      ctx.fillText(
+        `Info: ${gameState.lastCommandDescription}`,
+        20,
+        CANVAS_HEIGHT - 20
+      );
+    }
 
     // Draw game over screen
     if (gameState.isGameOver) {

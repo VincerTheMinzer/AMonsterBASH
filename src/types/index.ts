@@ -52,6 +52,7 @@ export interface GameState {
   isStarted: boolean;
   currentInput: string;
   lastError: string | null;
+  lastCommandDescription: string | null;
   suggestions: string[];
   turretsEnabled: boolean;
   turretCooldown: number;

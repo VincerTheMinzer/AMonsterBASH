@@ -1,0 +1,31 @@
+# Memory Bank .gitignore
+node_modules
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Logs
+*.log
+logs/
+
+# Personal notes or drafts
+drafts/
+notes/
+*.draft.md
+
+# Backup files
+*.bak
+backup/

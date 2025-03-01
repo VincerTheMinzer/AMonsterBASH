@@ -1,0 +1,113 @@
+# Cline Rules for AMonsterBASH
+
+## Project Patterns
+
+### Naming Conventions
+- React components use PascalCase (e.g., GameCanvas, Terminal)
+- Utility functions use camelCase (e.g., createEnemy, processInput)
+- Constants use UPPER_SNAKE_CASE (e.g., CANVAS_WIDTH, ENEMY_SPAWN_INTERVAL)
+- Interfaces and types use PascalCase (e.g., GameState, Enemy)
+- Enums use PascalCase with values in UPPER_CASE (e.g., CommandTier.BEGINNER)
+
+### File Organization
+- Components are stored in src/components/
+- Utility functions are in src/utils/
+- Game data is in src/data/
+- Custom hooks are in src/hooks/
+- TypeScript types are in src/types/
+
+### Code Style
+- TypeScript is used throughout the project
+- React functional components with hooks (no class components)
+- Tailwind CSS for styling
+- Canvas API for game rendering
+- Explicit type annotations for function parameters and returns
+
+## Implementation Patterns
+
+### Game Loop
+- The game loop is implemented in useGameLoop.ts
+- Uses requestAnimationFrame for smooth animation
+- Calculates delta time between frames for consistent speed
+- Updates game state based on elapsed time
+- Handles enemy spawning at regular intervals
+
+### State Management
+- Game state is managed through React's useState
+- A ref (gameStateRef) is used to avoid stale closures in the game loop
+- State updates are passed through callback functions
+- Component props follow a pattern of passing state and callback handlers
+
+### Command Processing
+- Commands are defined in src/data/commands.ts
+- Command matching is case-sensitive and requires exact matches
+- Boss enemies require a sequence of commands to defeat
+- Command suggestions are generated based on partial input
+
+### Canvas Rendering
+- The GameCanvas component handles all rendering
+- Canvas is cleared and redrawn on each frame
+- Game elements are drawn in layers (background, player, enemies, UI)
+- Text rendering is used for commands and game information
+
+## Critical Implementation Paths
+
+### Terminal Input Focus
+- Terminal input focus is managed through refs and useEffect
+- A global window.focusTerminal function is exposed for focus management
+- Focus is maintained during gameplay and reset on game state changes
+
+### Enemy Spawning and Movement
+- Enemies are spawned at regular intervals (ENEMY_SPAWN_INTERVAL)
+- Boss enemies are spawned less frequently (BOSS_SPAWN_INTERVAL)
+- Enemy movement is based on speed and delta time
+- Enemies are removed when they reach the player or are defeated
+
+### Command Tier Progression
+- Command tiers progress based on game timer
+- Each tier introduces more complex commands
+- Tier upgrades occur at 1-minute intervals
+- Score increases are based on the current tier
+
+### Turret System
+- Turrets can be activated with "turrets on" command
+- When active, turrets automatically defeat regular enemies
+- Turrets have a cooldown period (TURRET_COOLDOWN)
+- Turrets do not affect boss enemies
+
+## Known Challenges
+
+### Focus Management
+- Terminal input focus can be lost during gameplay
+- Focus needs to be restored when clicking on the game area
+- Focus should be maintained during game state transitions
+
+### Performance Optimization
+- Canvas rendering can be performance-intensive with many enemies
+- Enemy cleanup is important to prevent memory leaks
+- Animation frame IDs need to be properly canceled on unmount
+
+### Command Validation
+- Command matching is currently strict and case-sensitive
+- Error messages could be more helpful for learning
+- Command suggestions need to be visible but not distracting
+
+## User Preferences
+
+### Visual Theme
+- Dark theme with terminal-like aesthetics
+- High contrast colors for readability
+- Command text should be clearly visible above enemies
+- Health bars should provide clear visual feedback
+
+### Game Balance
+- Enemy spawn rates should be challenging but manageable
+- Command progression should follow a logical learning curve
+- Boss enemies should test more advanced skills
+- Turret system should provide strategic assistance without making the game too easy
+
+### Educational Focus
+- Commands should be grouped by difficulty and function
+- Command descriptions should explain real-world usage
+- Error messages should be helpful for learning
+- Command suggestions should aid in discovery

@@ -51,6 +51,7 @@ export const initializeGameState = (): GameState => ({
   isStarted: false,
   currentInput: '',
   lastError: null,
+  lastCommandDescription: null,
   suggestions: [],
   turretsEnabled: false,
   turretCooldown: 0
@@ -122,7 +123,8 @@ export const processInput = (input: string, gameState: GameState): GameState => 
     return {
       ...newGameState,
       turretsEnabled: true,
-      currentInput: ''
+      currentInput: '',
+      lastCommandDescription: 'Activates automatic turret system to defeat regular enemies'
     };
   }
   
@@ -130,16 +132,19 @@ export const processInput = (input: string, gameState: GameState): GameState => 
     return {
       ...newGameState,
       turretsEnabled: false,
-      currentInput: ''
+      currentInput: '',
+      lastCommandDescription: 'Deactivates automatic turret system'
     };
   }
   
   // Check for enemy matches
   let matchFound = false;
+  let commandDescription: string | null = null;
   
   const updatedEnemies = gameState.enemies.map(enemy => {
     if (!matchFound && enemy.isActive && checkCommandMatch(input, enemy)) {
       matchFound = true;
+      commandDescription = enemy.command.description;
       
       if (enemy.isBoss) {
         if (enemy.commandSequence && enemy.currentCommandIndex !== undefined) {
@@ -182,14 +187,16 @@ export const processInput = (input: string, gameState: GameState): GameState => 
       enemies: updatedEnemies,
       score: gameState.score + scoreIncrease,
       currentInput: '',
-      lastError: null
+      lastError: null,
+      lastCommandDescription: commandDescription
     };
   } else {
     // Command didn't match any enemy
     return {
       ...newGameState,
       currentInput: '',
-      lastError: `Command not found: ${input}`
+      lastError: `Command not found: ${input}`,
+      lastCommandDescription: null
     };
   }
 };
