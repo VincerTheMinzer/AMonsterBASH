@@ -245,6 +245,36 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
       ctx.fillText('Turrets: ACTIVE', 20, 60);
     }
 
+    // Draw PATH tutorial if needed
+    if (gameState.showPathTutorial) {
+      ctx.font = '14px monospace';
+      ctx.fillStyle = '#f9e2af';
+      ctx.textAlign = 'right';
+      ctx.fillText(
+        'Create a PATH variable for trash: export TRASH=/trash',
+        CANVAS_WIDTH - 20,
+        GAME_AREA_HEIGHT - 60
+      );
+      ctx.fillText(
+        'Then use it with: mv filename.txt $TRASH',
+        CANVAS_WIDTH - 20,
+        GAME_AREA_HEIGHT - 40
+      );
+    } else if (gameState.pathVariables.length > 0) {
+      // Draw PATH variables
+      ctx.font = '14px monospace';
+      ctx.fillStyle = '#a6e3a1';
+      ctx.textAlign = 'right';
+      
+      gameState.pathVariables.forEach((pathVar, index) => {
+        ctx.fillText(
+          `${pathVar.name}=${pathVar.path}`,
+          CANVAS_WIDTH - 20,
+          GAME_AREA_HEIGHT - 60 + index * 20
+        );
+      });
+    }
+    
     // Draw console input
     ctx.font = '16px monospace';
     ctx.fillStyle = '#cdd6f4';
@@ -267,6 +297,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
           GAME_AREA_HEIGHT + 90 + index * 20
         );
       });
+    }
+    
+    // Draw tab cycling info if there are visible filenames
+    if (gameState.visibleFilenames.length > 0 && gameState.currentInput.includes(' ')) {
+      ctx.font = '14px monospace';
+      ctx.fillStyle = '#89b4fa';
+      ctx.textAlign = 'right';
+      ctx.fillText(
+        'Press TAB to cycle through filenames',
+        CANVAS_WIDTH - 20,
+        GAME_AREA_HEIGHT + 30
+      );
     }
     
     // Draw command description at the bottom of the console

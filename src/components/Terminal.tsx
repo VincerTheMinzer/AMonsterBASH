@@ -62,7 +62,35 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
       // Prevent default tab behavior (focus change)
       e.preventDefault();
       
-      // Handle tab completion
+      // If we have visible filenames, cycle through them
+      if (gameState.visibleFilenames.length > 0) {
+        // Get the current command parts
+        const parts = input.trim().split(' ');
+        const command = parts[0];
+        
+        // If we have a command, cycle through filenames
+        if (command) {
+          // Get the next filename in the cycle
+          const nextIndex = (gameState.tabIndex + 1) % gameState.visibleFilenames.length;
+          const filename = gameState.visibleFilenames[nextIndex];
+          
+          // Create the new command with the filename
+          const newInput = `${command} ${filename}`;
+          setInput(newInput);
+          
+          // Update game state with the new input and tab index
+          onInputProcessed({
+            ...gameState,
+            currentInput: newInput,
+            tabIndex: nextIndex,
+            suggestions: []
+          });
+          
+          return;
+        }
+      }
+      
+      // Fall back to original tab completion behavior if no filenames to cycle through
       if (gameState.targetEnemy) {
         // Check if we should complete with command only or command + filename
         const currentInput = input.trim();

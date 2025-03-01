@@ -53,6 +53,11 @@ export interface Particle {
   maxLife: number;
 }
 
+export interface PathVariable {
+  name: string;
+  path: string;
+}
+
 export interface GameState {
   player: Player;
   enemies: Enemy[];
@@ -71,4 +76,8 @@ export interface GameState {
   targetEnemy: Enemy | null; // Enemy currently being targeted
   particles: Particle[]; // Particles for visual effects
   textAnimationTime: number; // For animating text
+  pathVariables: PathVariable[]; // PATH variables created by the player
+  showPathTutorial: boolean; // Whether to show the PATH tutorial
+  tabIndex: number; // Current index when cycling through filenames with tab
+  visibleFilenames: string[]; // All filenames currently visible on screen
 }

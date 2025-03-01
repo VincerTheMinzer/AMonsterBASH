@@ -57,7 +57,11 @@ export const initializeGameState = (): GameState => ({
   turretCooldown: 0,
   targetEnemy: null,
   particles: [],
-  textAnimationTime: 0
+  textAnimationTime: 0,
+  pathVariables: [],
+  showPathTutorial: true,
+  tabIndex: 0,
+  visibleFilenames: []
 });
 
 // Constants for enemy spawning
@@ -176,12 +180,30 @@ export const checkCommandMatch = (input: string, enemy: Enemy): boolean => {
   return trimmedInput === enemy.command.command || trimmedInput === commandWithFilename;
 };
 
+// Get all visible filenames in alphabetical order
+export const getVisibleFilenames = (enemies: Enemy[]): string[] => {
+  return enemies
+    .filter(enemy => enemy.isActive)
+    .map(enemy => enemy.filename)
+    .sort();
+};
+
+// Check if a command requires a path variable
+export const requiresPathVariable = (command: string): boolean => {
+  // Commands that typically require a destination
+  const commandsRequiringPath = ['mv', 'cp'];
+  
+  // Check if the command starts with any of these
+  return commandsRequiringPath.some(cmd => command.startsWith(cmd));
+};
+
 // Process player input
 export const processInput = (input: string, gameState: GameState): GameState => {
   const newGameState = { ...gameState };
+  const trimmedInput = input.trim();
   
   // Check for turret command
-  if (input === 'turrets on' && !gameState.turretsEnabled) {
+  if (trimmedInput === 'turrets on' && !gameState.turretsEnabled) {
     return {
       ...newGameState,
       turretsEnabled: true,
@@ -190,13 +212,76 @@ export const processInput = (input: string, gameState: GameState): GameState => 
     };
   }
   
-  if (input === 'turrets off' && gameState.turretsEnabled) {
+  if (trimmedInput === 'turrets off' && gameState.turretsEnabled) {
     return {
       ...newGameState,
       turretsEnabled: false,
       currentInput: '',
       lastCommandDescription: 'Deactivates automatic turret system'
     };
+  }
+  
+  // Check for PATH variable creation command (export PATH_NAME=/path)
+  if (trimmedInput.startsWith('export ') && trimmedInput.includes('=')) {
+    const parts = trimmedInput.substring(7).split('=');
+    if (parts.length === 2) {
+      const name = parts[0].trim();
+      const path = parts[1].trim();
+      
+      // Add or update the PATH variable
+      const existingPathIndex = gameState.pathVariables.findIndex(p => p.name === name);
+      let updatedPathVariables = [...gameState.pathVariables];
+      
+      if (existingPathIndex >= 0) {
+        // Update existing PATH
+        updatedPathVariables[existingPathIndex] = { name, path };
+      } else {
+        // Add new PATH
+        updatedPathVariables.push({ name, path });
+      }
+      
+      return {
+        ...newGameState,
+        pathVariables: updatedPathVariables,
+        showPathTutorial: false, // Hide tutorial after creating a PATH
+        currentInput: '',
+        lastCommandDescription: `Created PATH variable: ${name}=${path}`
+      };
+    }
+  }
+  
+  // Check for commands that require a PATH variable
+  if (requiresPathVariable(trimmedInput)) {
+    const parts = trimmedInput.split(' ');
+    if (parts.length >= 2) {
+      const command = parts[0];
+      const filename = parts[1];
+      
+      // Check if there's a destination specified
+      if (parts.length < 3) {
+        return {
+          ...newGameState,
+          currentInput: '',
+          lastError: `${command} requires a destination. Use a PATH variable like $TRASH`
+        };
+      }
+      
+      const destination = parts[2];
+      
+      // Check if the destination is a PATH variable
+      if (destination.startsWith('$')) {
+        const pathName = destination.substring(1);
+        const pathVariable = gameState.pathVariables.find(p => p.name === pathName);
+        
+        if (!pathVariable) {
+          return {
+            ...newGameState,
+            currentInput: '',
+            lastError: `PATH variable ${pathName} not found. Create it with: export ${pathName}=/path`
+          };
+        }
+      }
+    }
   }
   
   // Check for enemy matches
@@ -319,6 +404,9 @@ export const updateGameState = (gameState: GameState, deltaTime: number): GameSt
       };
     });
   
+  // Update visible filenames
+  const visibleFilenames = getVisibleFilenames(updatedEnemies);
+  
   // Calculate player damage from enemies that reached the player
   const reachedEnemies = gameState.enemies.filter(
     enemy => enemy.isActive && enemy.x <= gameState.player.x + gameState.player.width
@@ -369,7 +457,8 @@ export const updateGameState = (gameState: GameState, deltaTime: number): GameSt
     isGameOver,
     turretCooldown,
     particles: updatedParticles,
-    textAnimationTime
+    textAnimationTime,
+    visibleFilenames
   };
 };
 
