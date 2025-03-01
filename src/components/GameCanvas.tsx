@@ -1,6 +1,15 @@
 import React, { useRef, useEffect } from 'react';
-import { GameState, Enemy } from '../types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, CONSOLE_HEIGHT, GAME_AREA_HEIGHT, formatTime } from '../utils/gameUtils';
+import { GameState, Enemy, FileSystemItem } from '../types';
+import { 
+  CANVAS_WIDTH, 
+  CANVAS_HEIGHT, 
+  CONSOLE_HEIGHT, 
+  GAME_AREA_HEIGHT, 
+  formatTime, 
+  getCurrentDirectory,
+  getCurrentPathString,
+  getVisibleItems
+} from '../utils/gameUtils';
 import { drawCommandIcon } from '../utils/iconUtils';
 
 interface GameCanvasProps {
@@ -63,12 +72,50 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
     gameState.enemies.forEach(enemy => {
       if (!enemy.isActive) return;
 
+      // Common padding for text backgrounds
+      const padding = 4;
+      
       // Draw enemy with command icon
       const iconColor = enemy.isBoss ? '#f38ba8' : '#f9e2af';
       
       // Draw background rectangle
       ctx.fillStyle = iconColor;
       ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+      
+      // Find the enemy's location in the file system
+      const findEnemyLocation = (item: FileSystemItem, path: string[]): { path: string, parentFolder: string } | null => {
+        if (item.enemyId === enemy.id) {
+          return {
+            path: path.length === 0 ? '/' : '/' + path.join('/'),
+            parentFolder: path.length > 0 ? path[path.length - 1] : ''
+          };
+        }
+        
+        if (item.type === 'directory' && item.content) {
+          for (const child of item.content) {
+            const newPath = item.name === 'root' ? path : [...path, item.name];
+            const result = findEnemyLocation(child, newPath);
+            if (result) return result;
+          }
+        }
+        return null;
+      };
+      
+      // Get enemy location
+      const enemyLocation = findEnemyLocation(gameState.fileSystem.root, []) || { path: '', parentFolder: '' };
+      const currentPath = getCurrentPathString(gameState.fileSystem);
+      
+      // If we found a path and the directory has been explored, show it above the enemy
+      if (enemyLocation.path && gameState.fileSystem.exploredDirectories.includes(enemyLocation.path)) {
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#a6e3a1';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          `In: ${enemyLocation.path}`,
+          enemy.x + enemy.width / 2,
+          enemy.y - 45
+        );
+      }
       
       // Draw command icon if available
       if (enemy.command.icon) {
@@ -85,10 +132,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
 
       // Check if this enemy is the current target
       const isTargetEnemy = gameState.targetEnemy && gameState.targetEnemy.id === enemy.id;
-      
-      // Draw command text above enemy with background for better readability
-      const commandText = enemy.command.command;
       const currentInput = gameState.currentInput;
+      
+      // Draw command text above enemy
+      const commandText = enemy.command.command;
       
       // Determine font size with animation for target enemy
       let fontSize = enemy.isBoss ? 16 : 14;
@@ -118,19 +165,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
         }
       }
       
+      // Draw command text
       ctx.font = `${enemy.isBoss ? 'bold' : ''} ${fontSize}px monospace`;
       ctx.textAlign = 'center';
       
-      // Measure text width for background
-      const textWidth = ctx.measureText(commandText).width;
-      const padding = 4;
+      // Measure command text width for background
+      const commandWidth = ctx.measureText(commandText).width;
       
-      // Draw text background
+      // Draw command text background
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(
-        enemy.x + enemy.width / 2 - textWidth / 2 - padding,
+        enemy.x + enemy.width / 2 - commandWidth / 2 - padding,
         enemy.y - 25 - padding,
-        textWidth + padding * 2,
+        commandWidth + padding * 2,
         20
       );
       
@@ -160,38 +207,103 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
         ctx.fillText(commandText, enemy.x + enemy.width / 2, enemy.y - 15);
       }
       
-      // Draw filename below the enemy
+      // Check if this is a standalone command (like ls, pwd)
+      const STANDALONE_COMMANDS = ['ls', 'pwd', 'clear', 'history'];
+      const isStandaloneCommand = STANDALONE_COMMANDS.includes(enemy.command.command);
+      
+      // Determine what to display below the enemy
+      let displayText = '';
+      let textColor = '#ffffff'; // Default white for files
+      
+      if (isStandaloneCommand) {
+        // For standalone commands, just show the command itself
+        displayText = enemy.command.command;
+        textColor = '#ffffff'; // White for command
+      } else {
+        // For commands that need a filename, determine what to show based on location
+        // Check if the enemy is in the current directory and if it's been explored
+        const isInCurrentDir = enemyLocation.path === currentPath;
+        const isCurrentDirExplored = gameState.fileSystem.exploredDirectories.includes(currentPath);
+        
+        if (isInCurrentDir && isCurrentDirExplored) {
+          // If in current directory and it's been explored, show filename
+          displayText = enemy.filename;
+          textColor = '#ffffff'; // White for files
+        } else if (enemyLocation.path) {
+          // If not in current directory, show step-by-step directory tree
+          // Parse the path into components
+          const pathParts = enemyLocation.path.split('/').filter(part => part !== '');
+          const currentPathParts = currentPath.split('/').filter(part => part !== '');
+          
+          // Find the first divergent directory
+          let divergentIndex = 0;
+          while (divergentIndex < currentPathParts.length && 
+                 divergentIndex < pathParts.length && 
+                 currentPathParts[divergentIndex] === pathParts[divergentIndex]) {
+            divergentIndex++;
+          }
+          
+          // If we're at root and need to go to a top-level directory
+          if (currentPathParts.length === 0 && pathParts.length > 0) {
+            displayText = `in / rmv ${pathParts[0]}?`;
+            textColor = '#f38ba8'; // Red for navigation command
+          } 
+          // If we need to navigate up and then down
+          else if (divergentIndex < currentPathParts.length) {
+            // Need to go up first
+            displayText = 'cd ..';
+            textColor = '#f38ba8'; // Red for cd command
+          }
+          // If we need to navigate down the tree
+          else if (divergentIndex < pathParts.length) {
+            // Construct the current path string up to the divergent point
+            const currentSubPath = divergentIndex === 0 ? '/' : 
+                                  '/' + pathParts.slice(0, divergentIndex).join('/') + '/';
+            
+            // Show the next directory to navigate to
+            displayText = `in ${currentSubPath} rmv ${pathParts[divergentIndex]}?`;
+            textColor = '#f38ba8'; // Red for navigation command
+          }
+          // If we're in the correct directory but haven't used ls yet
+          else {
+            displayText = 'ls?';
+            textColor = '#f38ba8'; // Red for ls command
+          }
+        }
+      }
+      
+      // Draw text below the enemy
       ctx.font = `12px monospace`;
       ctx.textAlign = 'center';
       
-      // Measure filename width for background
-      const filenameWidth = ctx.measureText(enemy.filename).width;
+      // Measure display text width for background
+      const displayWidth = ctx.measureText(displayText).width;
       
       // Check if this enemy's filename is being targeted by the current input
       const isFilenameTargeted = gameState.currentInput.includes(enemy.filename);
       
-      // Draw filename background
+      // Draw text background
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(
-        enemy.x + enemy.width / 2 - filenameWidth / 2 - padding,
+        enemy.x + enemy.width / 2 - displayWidth / 2 - padding,
         enemy.y + enemy.height + 5 - padding,
-        filenameWidth + padding * 2,
+        displayWidth + padding * 2,
         20
       );
       
-      // Draw filename text with appropriate color
-      ctx.fillStyle = isFilenameTargeted ? '#a6e3a1' : '#89b4fa'; // Green if targeted, blue otherwise
+      // Draw text with appropriate color
+      ctx.fillStyle = isFilenameTargeted ? '#a6e3a1' : textColor;
       ctx.fillText(
-        enemy.filename,
+        displayText,
         enemy.x + enemy.width / 2,
         enemy.y + enemy.height + 15
       );
       
-      // Draw corners around the filename if it's targeted
+      // Draw corners around the text if it's targeted
       if (isFilenameTargeted) {
         const cornerSize = 5;
-        const cornerX1 = enemy.x + enemy.width / 2 - filenameWidth / 2 - padding;
-        const cornerX2 = enemy.x + enemy.width / 2 + filenameWidth / 2 + padding;
+        const cornerX1 = enemy.x + enemy.width / 2 - displayWidth / 2 - padding;
+        const cornerX2 = enemy.x + enemy.width / 2 + displayWidth / 2 + padding;
         const cornerY1 = enemy.y + enemy.height + 5 - padding;
         const cornerY2 = enemy.y + enemy.height + 5 + 20;
         
@@ -261,15 +373,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
             const yOffset = enemy.y - 40 - (enemy.commandSequence!.length - 1 - index) * 25;
             
             // Measure text width for background
-            const textWidth = ctx.measureText(sequenceText).width;
-            const padding = 4;
+            const seqWidth = ctx.measureText(sequenceText).width;
             
             // Draw text background
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(
-              enemy.x + enemy.width / 2 - textWidth / 2 - padding,
+              enemy.x + enemy.width / 2 - seqWidth / 2 - padding,
               yOffset - 10 - padding,
-              textWidth + padding * 2,
+              seqWidth + padding * 2,
               20
             );
             
@@ -285,6 +396,154 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
       }
     });
 
+    // Draw folder tree on the right side of the game area
+    const drawFolderTree = () => {
+      const treeWidth = 200;
+      const treeX = CANVAS_WIDTH - treeWidth - 10;
+      const treeY = 70;
+      const treeHeight = GAME_AREA_HEIGHT - 100;
+      
+      // Draw tree background
+      ctx.fillStyle = 'rgba(17, 17, 27, 0.8)';
+      ctx.fillRect(treeX, treeY, treeWidth, treeHeight);
+      
+      // Draw tree border
+      ctx.strokeStyle = '#313244';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(treeX, treeY, treeWidth, treeHeight);
+      
+      // Draw tree title
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = '#cdd6f4';
+      ctx.textAlign = 'center';
+      ctx.fillText('File Explorer', treeX + treeWidth / 2, treeY + 20);
+      
+      // Draw current path
+      const currentPath = getCurrentPathString(gameState.fileSystem);
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#89b4fa';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Path: ${currentPath}`, treeX + 10, treeY + 40);
+      
+      // Draw folder contents
+      const visibleItems = getVisibleItems(gameState.fileSystem);
+      const itemHeight = 20;
+      const startY = treeY + 60;
+      
+      // If directory hasn't been explored yet, show a message
+      if (visibleItems.length === 0) {
+        const currentPathStr = getCurrentPathString(gameState.fileSystem);
+        if (!gameState.fileSystem.exploredDirectories.includes(currentPathStr)) {
+          ctx.fillStyle = '#f9e2af';
+          ctx.textAlign = 'center';
+          ctx.fillText(
+            'Use "ls" to view contents',
+            treeX + treeWidth / 2,
+            startY + 20
+          );
+        } else {
+          ctx.fillStyle = '#cdd6f4';
+          ctx.textAlign = 'center';
+          ctx.fillText(
+            'Directory is empty',
+            treeX + treeWidth / 2,
+            startY + 20
+          );
+        }
+      } else {
+        // Draw each item
+        visibleItems.forEach((item, index) => {
+          const itemY = startY + index * itemHeight;
+          
+          // Determine item color based on type and status
+          let iconColor = '#ffffff'; // Default white for files
+          let textColor = '#ffffff'; // Default white for files
+          
+          if (item.type === 'directory') {
+            // Check if directory has been visited
+            const dirPath = currentPath + (currentPath.endsWith('/') ? '' : '/') + item.name;
+            const isVisited = gameState.fileSystem.exploredDirectories.includes(dirPath);
+            
+            // Check if directory has new files (enemies associated with it)
+            const hasNewFiles = gameState.enemies.some(enemy => {
+              // Find the enemy's location
+              const findEnemyLocation = (fsItem: FileSystemItem, path: string[]): boolean => {
+                if (fsItem.enemyId === enemy.id) {
+                  const enemyPath = path.length === 0 ? '/' : '/' + path.join('/');
+                  return enemyPath === dirPath;
+                }
+                
+                if (fsItem.type === 'directory' && fsItem.content) {
+                  for (const child of fsItem.content) {
+                    const newPath = fsItem.name === 'root' ? path : [...path, fsItem.name];
+                    if (findEnemyLocation(child, newPath)) {
+                      return true;
+                    }
+                  }
+                }
+                return false;
+              };
+              
+              return enemy.isActive && findEnemyLocation(gameState.fileSystem.root, []);
+            });
+            
+            // Set color based on status
+            if (isVisited) {
+              iconColor = hasNewFiles ? '#f9e2af' : '#a6e3a1'; // Orange if has new files, green if not
+            } else {
+              iconColor = '#89b4fa'; // Blue if unvisited
+            }
+          }
+          
+          // Draw item icon
+          ctx.fillStyle = item.type === 'directory' ? iconColor : '#ffffff';
+          ctx.fillRect(treeX + 10, itemY, 10, 10);
+          
+          // Draw item name
+          ctx.fillStyle = item.type === 'directory' ? iconColor : '#ffffff';
+          ctx.textAlign = 'left';
+          ctx.fillText(
+            item.name,
+            treeX + 30,
+            itemY + 10
+          );
+          
+          // If this item has an associated enemy, highlight it
+          if (item.enemyId) {
+            const enemy = gameState.enemies.find(e => e.id === item.enemyId && e.isActive);
+            if (enemy) {
+              // Draw a connecting line to the enemy
+              ctx.strokeStyle = iconColor;
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(treeX, itemY + 5);
+              ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height / 2);
+              ctx.stroke();
+              
+              // Draw a highlight around the item
+              ctx.strokeStyle = iconColor;
+              ctx.lineWidth = 2;
+              ctx.strokeRect(treeX + 5, itemY - 5, treeWidth - 10, itemHeight);
+              
+              // Draw a label above the enemy indicating its folder location
+              const folderPath = getCurrentPathString(gameState.fileSystem);
+              ctx.font = '10px monospace';
+              ctx.fillStyle = '#a6e3a1';
+              ctx.textAlign = 'center';
+              ctx.fillText(
+                `In: ${folderPath}`,
+                enemy.x + enemy.width / 2,
+                enemy.y - 45
+              );
+            }
+          }
+        });
+      }
+    };
+    
+    // Draw the folder tree
+    drawFolderTree();
+    
     // Draw score and timer
     ctx.font = 'bold 16px monospace';
     ctx.fillStyle = '#cdd6f4';
@@ -292,7 +551,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
     ctx.fillText(`Score: ${gameState.score}`, 20, 30);
     
     ctx.textAlign = 'right';
-    ctx.fillText(`Time: ${formatTime(gameState.timer)}`, CANVAS_WIDTH - 20, 30);
+    ctx.fillText(`Time: ${formatTime(gameState.timer)}`, CANVAS_WIDTH - 220, 30);
 
     // Draw current tier
     ctx.textAlign = 'center';

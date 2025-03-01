@@ -52,11 +52,27 @@ export interface Particle {
   size: number;
   life: number;
   maxLife: number;
+  gravity?: number; // Optional gravity effect for the particle
 }
 
 export interface PathVariable {
   name: string;
   path: string;
+}
+
+// File system structure
+export interface FileSystemItem {
+  name: string;
+  type: 'file' | 'directory';
+  content?: FileSystemItem[]; // For directories
+  isVisible?: boolean; // Whether this item is visible to the player (after ls)
+  enemyId?: string; // Associated enemy ID if any
+}
+
+export interface FileSystem {
+  root: FileSystemItem;
+  currentPath: string[]; // Array of directory names representing current path
+  exploredDirectories: string[]; // Directories where 'ls' has been used
 }
 
 export interface GameState {
@@ -81,4 +97,5 @@ export interface GameState {
   showPathTutorial: boolean; // Whether to show the PATH tutorial
   tabIndex: number; // Current index when cycling through filenames with tab
   visibleFilenames: string[]; // All filenames currently visible on screen
+  fileSystem: FileSystem; // File system structure
 }

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Command, CommandTier, Enemy, GameState, Particle, Player } from '../types';
+import { Command, CommandTier, Enemy, FileSystem, FileSystemItem, GameState, Particle, Player } from '../types';
 import { getRandomCommand, getRandomCommandSequence, getCommandsByTier } from '../data/commands';
 
 // Constants
@@ -39,6 +39,135 @@ export const initializePlayer = (): Player => ({
   experienceToNextLevel: 100
 });
 
+// Predefined file pools for different directories
+const FILE_POOLS = {
+  documents: [
+    'resume.pdf', 'report.docx', 'notes.txt', 'budget.xlsx', 
+    'presentation.pptx', 'contract.pdf', 'todo.md', 'meeting_minutes.txt',
+    'project_plan.xlsx', 'thesis.pdf', 'letter.docx', 'schedule.xlsx'
+  ],
+  pictures: [
+    'vacation.jpg', 'family.png', 'party.jpg', 'screenshot.png', 
+    'profile.jpg', 'landscape.png', 'birthday.jpg', 'wedding.png',
+    'sunset.jpg', 'cat.png', 'dog.jpg', 'selfie.png'
+  ],
+  videos: [
+    'tutorial.mp4', 'movie.mkv', 'lecture.mp4', 'gameplay.webm', 
+    'interview.mp4', 'concert.mkv', 'vlog.mp4', 'animation.webm',
+    'presentation.mp4', 'travel.mkv', 'wedding.mp4', 'highlights.webm'
+  ],
+  music: [
+    'song.mp3', 'album.flac', 'playlist.m3u', 'podcast.mp3', 
+    'soundtrack.flac', 'recording.wav', 'ringtone.mp3', 'audiobook.m4a',
+    'live_performance.mp3', 'remix.flac', 'voice_memo.wav', 'radio_show.mp3'
+  ],
+  downloads: [
+    'installer.exe', 'archive.zip', 'ebook.pdf', 'software.dmg', 
+    'update.msi', 'dataset.csv', 'driver.exe', 'backup.tar.gz',
+    'movie.mp4', 'album.zip', 'game.iso', 'firmware.bin'
+  ],
+  code: [
+    'script.js', 'index.html', 'styles.css', 'app.py', 
+    'main.cpp', 'config.json', 'server.js', 'database.sql',
+    'utils.py', 'component.jsx', 'api.ts', 'Dockerfile'
+  ],
+  config: [
+    'settings.json', 'config.yml', '.env', 'preferences.xml', 
+    'options.ini', 'profile.conf', 'rules.json', 'schema.xml',
+    'routes.yml', 'users.json', 'permissions.conf', 'defaults.ini'
+  ],
+  logs: [
+    'system.log', 'error.log', 'access.log', 'debug.log', 
+    'application.log', 'server.log', 'events.log', 'audit.log',
+    'performance.log', 'security.log', 'network.log', 'database.log'
+  ]
+};
+
+// Initialize file system with a logical structure and predefined files
+export const initializeFileSystem = (): FileSystem => {
+  return {
+    root: {
+      name: 'root',
+      type: 'directory',
+      content: [
+        {
+          name: 'home',
+          type: 'directory',
+          content: [
+            {
+              name: 'user',
+              type: 'directory',
+              content: [
+                { 
+                  name: 'documents', 
+                  type: 'directory', 
+                  content: FILE_POOLS.documents.slice(0, 5).map(name => ({ name, type: 'file' }))
+                },
+                { 
+                  name: 'pictures', 
+                  type: 'directory', 
+                  content: FILE_POOLS.pictures.slice(0, 5).map(name => ({ name, type: 'file' }))
+                },
+                { 
+                  name: 'videos', 
+                  type: 'directory', 
+                  content: FILE_POOLS.videos.slice(0, 5).map(name => ({ name, type: 'file' }))
+                },
+                { 
+                  name: 'music', 
+                  type: 'directory', 
+                  content: FILE_POOLS.music.slice(0, 5).map(name => ({ name, type: 'file' }))
+                },
+                { 
+                  name: 'downloads', 
+                  type: 'directory', 
+                  content: FILE_POOLS.downloads.slice(0, 5).map(name => ({ name, type: 'file' }))
+                },
+                { 
+                  name: 'code', 
+                  type: 'directory', 
+                  content: FILE_POOLS.code.slice(0, 5).map(name => ({ name, type: 'file' }))
+                },
+                { name: 'readme.txt', type: 'file' }
+              ]
+            }
+          ]
+        },
+        {
+          name: 'bin',
+          type: 'directory',
+          content: [
+            { name: 'bash', type: 'file' },
+            { name: 'ls', type: 'file' },
+            { name: 'cd', type: 'file' },
+            { name: 'mv', type: 'file' },
+            { name: 'cp', type: 'file' },
+            { name: 'rm', type: 'file' }
+          ]
+        },
+        {
+          name: 'etc',
+          type: 'directory',
+          content: FILE_POOLS.config.slice(0, 6).map(name => ({ name, type: 'file' }))
+        },
+        {
+          name: 'var',
+          type: 'directory',
+          content: [
+            { 
+              name: 'log', 
+              type: 'directory', 
+              content: FILE_POOLS.logs.slice(0, 6).map(name => ({ name, type: 'file' }))
+            }
+          ]
+        }
+      ]
+    },
+    currentPath: [], // Start at root
+    exploredDirectories: ['/'] // Root is explored by default
+  };
+};
+
 // Initialize game state
 export const initializeGameState = (): GameState => ({
   player: initializePlayer(),
@@ -61,7 +190,8 @@ export const initializeGameState = (): GameState => ({
   pathVariables: [],
   showPathTutorial: true,
   tabIndex: 0,
-  visibleFilenames: []
+  visibleFilenames: [],
+  fileSystem: initializeFileSystem()
 });
 
 // Constants for enemy spawning
@@ -102,8 +232,174 @@ const generateRandomFilename = (tier: CommandTier): string => {
   return `${prefix}${suffix}${extension}`;
 };
 
+// Create a directory in the file system
+export const createDirectoryInFileSystem = (
+  fileSystem: FileSystem,
+  parentPath: string[],
+  dirName: string,
+  enemyId: string
+): FileSystem => {
+  // Clone the file system
+  const newFileSystem = { ...fileSystem, root: { ...fileSystem.root } };
+  
+  // Navigate to the parent directory
+  let current = newFileSystem.root;
+  let parentDir = current;
+  
+  for (const dir of parentPath) {
+    parentDir = current;
+    const found = current.content?.find(item => 
+      item.type === 'directory' && item.name === dir
+    );
+    
+    if (found && found.type === 'directory') {
+      // Clone the directory
+      current = { ...found, content: [...(found.content || [])] };
+      
+      // Update the parent's content with the cloned directory
+      const index = parentDir.content?.findIndex(item => 
+        item.type === 'directory' && item.name === dir
+      ) || -1;
+      
+      if (index !== -1 && parentDir.content) {
+        parentDir.content[index] = current;
+      }
+    } else {
+      // If directory not found, create it
+      const newDir: FileSystemItem = {
+        name: dir,
+        type: 'directory',
+        content: []
+      };
+      
+      if (!current.content) {
+        current.content = [];
+      }
+      
+      current.content.push(newDir);
+      current = newDir;
+    }
+  }
+  
+  // Create the new directory
+  const newDir: FileSystemItem = {
+    name: dirName,
+    type: 'directory',
+    content: [],
+    enemyId
+  };
+  
+  if (!current.content) {
+    current.content = [];
+  }
+  
+  current.content.push(newDir);
+  
+  return newFileSystem;
+};
+
+// Create a file in the file system
+export const createFileInFileSystem = (
+  fileSystem: FileSystem,
+  parentPath: string[],
+  fileName: string,
+  enemyId: string
+): FileSystem => {
+  // Clone the file system
+  const newFileSystem = { ...fileSystem, root: { ...fileSystem.root } };
+  
+  // Navigate to the parent directory
+  let current = newFileSystem.root;
+  let parentDir = current;
+  
+  for (const dir of parentPath) {
+    parentDir = current;
+    const found = current.content?.find(item => 
+      item.type === 'directory' && item.name === dir
+    );
+    
+    if (found && found.type === 'directory') {
+      // Clone the directory
+      current = { ...found, content: [...(found.content || [])] };
+      
+      // Update the parent's content with the cloned directory
+      const index = parentDir.content?.findIndex(item => 
+        item.type === 'directory' && item.name === dir
+      ) || -1;
+      
+      if (index !== -1 && parentDir.content) {
+        parentDir.content[index] = current;
+      }
+    } else {
+      // If directory not found, create it
+      const newDir: FileSystemItem = {
+        name: dir,
+        type: 'directory',
+        content: []
+      };
+      
+      if (!current.content) {
+        current.content = [];
+      }
+      
+      current.content.push(newDir);
+      current = newDir;
+    }
+  }
+  
+  // Create the new file
+  const newFile: FileSystemItem = {
+    name: fileName,
+    type: 'file',
+    enemyId
+  };
+  
+  if (!current.content) {
+    current.content = [];
+  }
+  
+  current.content.push(newFile);
+  
+  return newFileSystem;
+};
+
+// Get a random filename from the appropriate pool based on directory
+const getFileFromPool = (dirPath: string[]): string => {
+  // Default to documents if no match
+  let pool = FILE_POOLS.documents;
+  
+  // Check the last directory in the path to determine which pool to use
+  if (dirPath.length > 0) {
+    const lastDir = dirPath[dirPath.length - 1].toLowerCase();
+    
+    if (lastDir === 'documents' || lastDir === 'docs') {
+      pool = FILE_POOLS.documents;
+    } else if (lastDir === 'pictures' || lastDir === 'pics' || lastDir === 'images') {
+      pool = FILE_POOLS.pictures;
+    } else if (lastDir === 'videos' || lastDir === 'movies') {
+      pool = FILE_POOLS.videos;
+    } else if (lastDir === 'music' || lastDir === 'audio') {
+      pool = FILE_POOLS.music;
+    } else if (lastDir === 'downloads' || lastDir === 'dl') {
+      pool = FILE_POOLS.downloads;
+    } else if (lastDir === 'code' || lastDir === 'src' || lastDir === 'source') {
+      pool = FILE_POOLS.code;
+    } else if (lastDir === 'config' || lastDir === 'conf' || lastDir === 'etc') {
+      pool = FILE_POOLS.config;
+    } else if (lastDir === 'log' || lastDir === 'logs' || lastDir === 'var') {
+      pool = FILE_POOLS.logs;
+    }
+  }
+  
+  // Get a random file from the pool
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
+// Commands that don't require a filename
+const STANDALONE_COMMANDS_LIST = ['ls', 'pwd', 'clear', 'history'];
+
 // Create a new enemy
-export const createEnemy = (tier: CommandTier, isBoss: boolean = false): Enemy => {
+export const createEnemy = (tier: CommandTier, isBoss: boolean = false, gameState: GameState): { enemy: Enemy, updatedFileSystem: FileSystem } => {
   const id = uuidv4();
   const x = CANVAS_WIDTH;
   
@@ -115,56 +411,188 @@ export const createEnemy = (tier: CommandTier, isBoss: boolean = false): Enemy =
   // Generate y position within the restricted range
   const y = minY + Math.random() * spawnRange;
   
-  // Generate a random filename
-  const filename = generateRandomFilename(tier);
+  // Determine command based on enemy type
+  let command: Command;
+  let commandSequence: Command[] | undefined;
+  let currentCommandIndex: number | undefined;
+  let updatedFileSystem = gameState.fileSystem;
+  let filename = '';
+  
+  // Get the game timer in seconds
+  const gameTimeSeconds = gameState.timer / 1000;
   
   if (isBoss) {
-    const commandSequence = getRandomCommandSequence(tier, 3);
-    return {
-      id,
-      type: 'boss',
-      command: commandSequence[0],
-      commandSequence,
-      currentCommandIndex: 0,
-      health: 100,
-      maxHealth: 100,
-      x,
-      y,
-      speed: 0.5,
-      damage: 20,
-      width: BOSS_WIDTH,
-      height: BOSS_HEIGHT,
-      isActive: true,
-      isBoss: true,
-      filename
-    };
+    // Boss enemies use command sequences
+    commandSequence = getRandomCommandSequence(tier, 3);
+    command = commandSequence[0];
+    currentCommandIndex = 0;
+    filename = generateRandomFilename(tier); // Use generic filename for bosses
+  } else {
+    // For the first 30 seconds, only spawn cd and ls commands
+    if (gameTimeSeconds < 30) {
+      // Get all available commands for the current tier
+      const availableCommands = getCommandsByTier(tier);
+      
+      // Filter to only include cd and standalone commands
+      const filteredCommands = availableCommands.filter(cmd => 
+        cmd.command === 'cd' || STANDALONE_COMMANDS_LIST.includes(cmd.command)
+      );
+      
+      // If no filtered commands, fall back to cd
+      if (filteredCommands.length === 0) {
+        command = availableCommands.find(cmd => cmd.command === 'cd') || getRandomCommand(tier);
+      } else {
+        // Randomly select from filtered commands
+        command = filteredCommands[Math.floor(Math.random() * filteredCommands.length)];
+      }
+    } else {
+      // After 30 seconds, use normal command selection
+      command = getRandomCommand(tier);
+    }
+    
+    // Special handling for file system commands
+    if (command.command === 'cd') {
+      // Create a directory in the file system
+      // Choose a logical path to place the directory
+      const dirOptions = [
+        { path: [], name: 'projects' },
+        { path: ['home'], name: 'user' },
+        { path: ['home', 'user'], name: 'desktop' },
+        { path: ['var'], name: 'cache' },
+        { path: ['etc'], name: 'network' }
+      ];
+      
+      const dirOption = dirOptions[Math.floor(Math.random() * dirOptions.length)];
+      const dirName = dirOption.name;
+      filename = dirName; // Use directory name as filename
+      
+      updatedFileSystem = createDirectoryInFileSystem(
+        gameState.fileSystem,
+        dirOption.path,
+        dirName,
+        id
+      );
+    } else if (STANDALONE_COMMANDS_LIST.includes(command.command)) {
+      // For standalone commands like ls, pwd, etc.
+      // No filename needed, but we'll set one for consistency
+      filename = command.command;
+    } else if (command.command === 'cat' || command.command === 'rm' || 
+               command.command === 'cp' || command.command === 'mv') {
+      // Create a file in the file system
+      // Choose a logical path to place the file
+      const pathOptions = [
+        { path: ['home', 'user', 'documents'], type: 'documents' },
+        { path: ['home', 'user', 'pictures'], type: 'pictures' },
+        { path: ['home', 'user', 'videos'], type: 'videos' },
+        { path: ['home', 'user', 'music'], type: 'music' },
+        { path: ['home', 'user', 'downloads'], type: 'downloads' },
+        { path: ['home', 'user', 'code'], type: 'code' },
+        { path: ['etc'], type: 'config' },
+        { path: ['var', 'log'], type: 'logs' }
+      ];
+      
+      const pathOption = pathOptions[Math.floor(Math.random() * pathOptions.length)];
+      filename = getFileFromPool(pathOption.path);
+      
+      updatedFileSystem = createFileInFileSystem(
+        gameState.fileSystem,
+        pathOption.path,
+        filename,
+        id
+      );
+    } else {
+      // For other commands, just use a generic filename
+      filename = generateRandomFilename(tier);
+    }
   }
   
-  return {
+  const enemy: Enemy = {
     id,
-    type: 'regular',
-    command: getRandomCommand(tier),
-    health: 1,
-    maxHealth: 1,
+    type: isBoss ? 'boss' : 'regular',
+    command,
+    commandSequence,
+    currentCommandIndex,
+    health: isBoss ? 100 : 1,
+    maxHealth: isBoss ? 100 : 1,
     x,
     y,
-    speed: 1 + Math.random(),
-    damage: 10,
-    width: ENEMY_WIDTH,
-    height: ENEMY_HEIGHT,
+    speed: isBoss ? 0.3 : 0.5 + Math.random() * 0.5, // Slower speeds
+    damage: isBoss ? 20 : 10,
+    width: isBoss ? BOSS_WIDTH : ENEMY_WIDTH,
+    height: isBoss ? BOSS_HEIGHT : ENEMY_HEIGHT,
     isActive: true,
-    isBoss: false,
+    isBoss,
     filename
   };
+  
+  return { enemy, updatedFileSystem };
 };
 
+// File system navigation functions
+export const getCurrentDirectory = (fileSystem: FileSystem): FileSystemItem => {
+  let current = fileSystem.root;
+  
+  // Navigate through the path
+  for (const dir of fileSystem.currentPath) {
+    const found = current.content?.find(item => 
+      item.type === 'directory' && item.name === dir
+    );
+    
+    if (found && found.type === 'directory') {
+      current = found;
+    } else {
+      // If directory not found, return current
+      break;
+    }
+  }
+  
+  return current;
+};
+
+// Get the current path as a string
+export const getCurrentPathString = (fileSystem: FileSystem): string => {
+  if (fileSystem.currentPath.length === 0) {
+    return '/';
+  }
+  
+  return '/' + fileSystem.currentPath.join('/');
+};
+
+// Get items in the current directory that are visible (after ls)
+export const getVisibleItems = (fileSystem: FileSystem): FileSystemItem[] => {
+  const currentDir = getCurrentDirectory(fileSystem);
+  const currentPathStr = getCurrentPathString(fileSystem);
+  
+  // Check if this directory has been explored
+  if (!fileSystem.exploredDirectories.includes(currentPathStr)) {
+    return [];
+  }
+  
+  return currentDir.content || [];
+};
+
+// Commands that don't require a filename
+const STANDALONE_COMMANDS = ['ls', 'pwd', 'clear', 'history'];
+
 // Check if a command matches an enemy
-export const checkCommandMatch = (input: string, enemy: Enemy): boolean => {
+export const checkCommandMatch = (input: string, enemy: Enemy, gameState: GameState): boolean => {
   const trimmedInput = input.trim();
+  
+  // Unconditionally destroy enemies with cd, pwd, or ls commands if the corresponding command is given
+  if ((enemy.command.command === 'cd' && trimmedInput.startsWith('cd ')) ||
+      (enemy.command.command === 'ls' && trimmedInput === 'ls') ||
+      (enemy.command.command === 'pwd' && trimmedInput === 'pwd')) {
+    return true;
+  }
   
   if (enemy.isBoss) {
     if (enemy.commandSequence && enemy.currentCommandIndex !== undefined) {
       const currentCommand = enemy.commandSequence[enemy.currentCommandIndex];
+      
+      // Check if this is a standalone command
+      if (STANDALONE_COMMANDS.includes(currentCommand.command)) {
+        return trimmedInput === currentCommand.command;
+      }
       
       // Check for command with filename
       const commandWithFilename = `${currentCommand.command} ${enemy.filename}`;
@@ -174,9 +602,13 @@ export const checkCommandMatch = (input: string, enemy: Enemy): boolean => {
     return false;
   }
   
+  // Check if this is a standalone command (ls, pwd, etc.)
+  if (STANDALONE_COMMANDS.includes(enemy.command.command)) {
+    return trimmedInput === enemy.command.command;
+  }
+  
   // For regular enemies, check both plain command and command with filename
   const commandWithFilename = `${enemy.command.command} ${enemy.filename}`;
-  
   return trimmedInput === enemy.command.command || trimmedInput === commandWithFilename;
 };
 
@@ -195,6 +627,133 @@ export const requiresPathVariable = (command: string): boolean => {
   
   // Check if the command starts with any of these
   return commandsRequiringPath.some(cmd => command.startsWith(cmd));
+};
+
+// Process file system commands
+export const processFileSystemCommand = (input: string, gameState: GameState): GameState | null => {
+  const trimmedInput = input.trim();
+  const parts = trimmedInput.split(' ');
+  const command = parts[0];
+  
+  // Handle cd command
+  if (command === 'cd') {
+    const targetDir = parts[1];
+    
+    // Handle cd with no arguments (go to root)
+    if (!targetDir || targetDir === '/') {
+      return {
+        ...gameState,
+        fileSystem: {
+          ...gameState.fileSystem,
+          currentPath: []
+        },
+        currentInput: '',
+        lastCommandDescription: 'Changed directory to /',
+        lastError: null
+      };
+    }
+    
+    // Handle cd .. (go up one level)
+    if (targetDir === '..') {
+      if (gameState.fileSystem.currentPath.length === 0) {
+        return {
+          ...gameState,
+          currentInput: '',
+          lastError: 'Already at root directory',
+          lastCommandDescription: null
+        };
+      }
+      
+      const newPath = [...gameState.fileSystem.currentPath];
+      newPath.pop();
+      
+      return {
+        ...gameState,
+        fileSystem: {
+          ...gameState.fileSystem,
+          currentPath: newPath
+        },
+        currentInput: '',
+        lastCommandDescription: `Changed directory to ${newPath.length === 0 ? '/' : '/' + newPath.join('/')}`,
+        lastError: null
+      };
+    }
+    
+    // Handle cd to a specific directory
+    const currentDir = getCurrentDirectory(gameState.fileSystem);
+    const dirItem = currentDir.content?.find(item => 
+      item.type === 'directory' && item.name === targetDir
+    );
+    
+    if (!dirItem) {
+      return {
+        ...gameState,
+        currentInput: '',
+        lastError: `Directory not found: ${targetDir}`,
+        lastCommandDescription: null
+      };
+    }
+    
+    // Navigate to the directory
+    const newPath = [...gameState.fileSystem.currentPath, targetDir];
+    
+    return {
+      ...gameState,
+      fileSystem: {
+        ...gameState.fileSystem,
+        currentPath: newPath
+      },
+      currentInput: '',
+      lastCommandDescription: `Changed directory to /${newPath.join('/')}`,
+      lastError: null
+    };
+  }
+  
+  // Handle ls command
+  if (command === 'ls') {
+    const currentPathStr = getCurrentPathString(gameState.fileSystem);
+    let exploredDirectories = [...gameState.fileSystem.exploredDirectories];
+    
+    // Mark this directory as explored if it's not already
+    if (!exploredDirectories.includes(currentPathStr)) {
+      exploredDirectories.push(currentPathStr);
+    }
+    
+    // Get the current directory
+    const currentDir = getCurrentDirectory(gameState.fileSystem);
+    const items = currentDir.content || [];
+    
+    // Format the items for display
+    const itemsText = items.length === 0 
+      ? 'Directory is empty' 
+      : items.map(item => `${item.type === 'directory' ? 'd' : '-'} ${item.name}`).join(', ');
+    
+    return {
+      ...gameState,
+      fileSystem: {
+        ...gameState.fileSystem,
+        exploredDirectories
+      },
+      currentInput: '',
+      lastCommandDescription: `Contents of ${currentPathStr}: ${itemsText}`,
+      lastError: null
+    };
+  }
+  
+  // Handle pwd command
+  if (command === 'pwd') {
+    const currentPathStr = getCurrentPathString(gameState.fileSystem);
+    
+    return {
+      ...gameState,
+      currentInput: '',
+      lastCommandDescription: `Current directory: ${currentPathStr}`,
+      lastError: null
+    };
+  }
+  
+  // If not a file system command, return null
+  return null;
 };
 
 // Process player input
@@ -219,6 +778,38 @@ export const processInput = (input: string, gameState: GameState): GameState => 
       currentInput: '',
       lastCommandDescription: 'Deactivates automatic turret system'
     };
+  }
+  
+  // Check for step-by-step directory navigation commands
+  // Match patterns like "in / rmv home?" or "in /home/ rmv user?"
+  const dirNavRegex = /^in\s+(\S+)\s+rmv\s+(\S+)\??$/i;
+  const dirNavMatch = trimmedInput.match(dirNavRegex);
+  
+  if (dirNavMatch) {
+    const path = dirNavMatch[1];
+    const dirToNavigate = dirNavMatch[2];
+    
+    // Convert this to a cd command
+    const cdCommand = `cd ${dirToNavigate}`;
+    const fileSystemResult = processFileSystemCommand(cdCommand, gameState);
+    if (fileSystemResult) {
+      return fileSystemResult;
+    }
+  }
+  
+  // Check for "ls?" command
+  if (trimmedInput === 'ls?' || trimmedInput === 'ls') {
+    const lsCommand = 'ls';
+    const fileSystemResult = processFileSystemCommand(lsCommand, gameState);
+    if (fileSystemResult) {
+      return fileSystemResult;
+    }
+  }
+  
+  // Check for file system commands
+  const fileSystemResult = processFileSystemCommand(input, gameState);
+  if (fileSystemResult) {
+    return fileSystemResult;
   }
   
   // Check for PATH variable creation command (export PATH_NAME=/path)
@@ -291,7 +882,7 @@ export const processInput = (input: string, gameState: GameState): GameState => 
   let newParticles: Particle[] = [];
   
   const updatedEnemies = gameState.enemies.map(enemy => {
-    if (!matchFound && enemy.isActive && checkCommandMatch(input, enemy)) {
+    if (!matchFound && enemy.isActive && checkCommandMatch(input, enemy, gameState)) {
       matchFound = true;
       commandDescription = enemy.command.description;
       
@@ -334,7 +925,8 @@ export const processInput = (input: string, gameState: GameState): GameState => 
       enemy.x,
       enemy.y,
       enemy.width,
-      enemy.height
+      enemy.height,
+      enemy.command.icon // Pass the command icon type for themed particles
     );
   }
   
@@ -462,10 +1054,11 @@ export const updateGameState = (gameState: GameState, deltaTime: number): GameSt
   };
 };
 
-// Generate suggestions based on current input
-export const generateSuggestions = (input: string, tier: CommandTier): string[] => {
+// Generate suggestions based on current input and file system
+export const generateSuggestions = (input: string, tier: CommandTier, gameState?: GameState): string[] => {
   if (!input) return [];
   
+  // Get all available commands based on tier
   const allCommands = [
     ...getCommandsByTier(CommandTier.BEGINNER),
     ...(tier >= CommandTier.INTERMEDIATE ? getCommandsByTier(CommandTier.INTERMEDIATE) : []),
@@ -473,10 +1066,43 @@ export const generateSuggestions = (input: string, tier: CommandTier): string[] 
     ...(tier >= CommandTier.PRO ? getCommandsByTier(CommandTier.PRO) : [])
   ];
   
-  return allCommands
+  // Check if input is a partial command
+  const commandSuggestions = allCommands
     .filter(cmd => cmd.command.startsWith(input))
-    .map(cmd => cmd.command)
-    .slice(0, 4);
+    .map(cmd => cmd.command);
+  
+  // If we have a game state and the input starts with 'cd ' or 'ls ', suggest directories
+  if (gameState && input.startsWith('cd ')) {
+    const partialPath = input.substring(3).trim();
+    
+    // Get current directory contents
+    const currentDir = getCurrentDirectory(gameState.fileSystem);
+    const currentPathStr = getCurrentPathString(gameState.fileSystem);
+    
+    // Only suggest directories that have been explored
+    if (gameState.fileSystem.exploredDirectories.includes(currentPathStr)) {
+      const dirSuggestions = currentDir.content
+        ?.filter(item => 
+          item.type === 'directory' && 
+          item.name.startsWith(partialPath)
+        )
+        .map(item => `cd ${item.name}`) || [];
+      
+      // Add cd .. suggestion if we're not at root
+      if (gameState.fileSystem.currentPath.length > 0 && '..'.startsWith(partialPath)) {
+        dirSuggestions.unshift('cd ..');
+      }
+      
+      // Add cd / suggestion if we're not at root
+      if (gameState.fileSystem.currentPath.length > 0 && '/'.startsWith(partialPath)) {
+        dirSuggestions.unshift('cd /');
+      }
+      
+      return [...dirSuggestions, ...commandSuggestions].slice(0, 4);
+    }
+  }
+  
+  return commandSuggestions.slice(0, 4);
 };
 
 // Format time (milliseconds to MM:SS)
@@ -493,26 +1119,201 @@ export const PARTICLE_COLORS = ['#f38ba8', '#f9e2af', '#a6e3a1', '#89b4fa', '#cb
 export const PARTICLE_COUNT = 30; // Number of particles to create per explosion
 export const PARTICLE_MAX_LIFE = 1000; // Maximum particle lifetime in ms
 
-// Create particles for an explosion effect
-export const createExplosion = (x: number, y: number, width: number, height: number): Particle[] => {
+// Command-specific particle effects
+export const COMMAND_PARTICLE_EFFECTS = {
+  // Movement commands (cd)
+  move: {
+    count: 20,
+    color: '#89b4fa', // Blue
+    size: [2, 5],
+    speed: [1, 3],
+    pattern: 'directional', // Particles move in the direction of the command (left to right)
+    gravity: -0.5
+  },
+  
+  // List commands (ls)
+  list: {
+    count: 30,
+    color: '#a6e3a1', // Green
+    size: [1, 3],
+    speed: [0.5, 2],
+    pattern: 'expand', // Particles expand outward in all directions
+    gravity: 0
+  },
+  
+  // Print commands (echo, cat, pwd)
+  print: {
+    count: 25,
+    color: '#cdd6f4', // White/light gray
+    size: [1, 4],
+    speed: [1, 2],
+    pattern: 'cascade', // Particles cascade downward like text
+    gravity: 0.2
+  },
+  
+  // Create commands (mkdir, touch)
+  create: {
+    count: 35,
+    color: '#f9e2af', // Yellow
+    size: [2, 4],
+    speed: [1, 3],
+    pattern: 'burst', // Particles burst outward from center
+    gravity: -0.1
+  },
+  
+  // Delete commands (rm)
+  delete: {
+    count: 40,
+    color: '#f38ba8', // Red
+    size: [2, 5],
+    speed: [2, 4],
+    pattern: 'implode', // Particles move inward and then disappear
+    gravity: 0.3
+  },
+  
+  // Copy commands (cp)
+  copy: {
+    count: 30,
+    color: '#89dceb', // Cyan
+    size: [2, 4],
+    speed: [1, 2.5],
+    pattern: 'duplicate', // Particles split and duplicate
+    gravity: 0
+  },
+  
+  // Rename/move commands (mv)
+  rename: {
+    count: 25,
+    color: '#cba6f7', // Purple
+    size: [2, 4],
+    speed: [1, 3],
+    pattern: 'transform', // Particles transform shape
+    gravity: 0.1
+  },
+  
+  // Default for other commands
+  default: {
+    count: 30,
+    color: 'random', // Random colors from palette
+    size: [2, 4],
+    speed: [1, 3],
+    pattern: 'fountain', // Standard fountain effect
+    gravity: 0.1
+  }
+};
+
+// Create particles for an explosion effect based on command type
+export const createExplosion = (x: number, y: number, width: number, height: number, iconType?: string): Particle[] => {
   const particles: Particle[] = [];
   
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    // Random position within the enemy bounds
-    const particleX = x + Math.random() * width;
-    const particleY = y + Math.random() * height;
+  // Get particle effect settings based on command type
+  const effectType = iconType || 'default';
+  const effect = COMMAND_PARTICLE_EFFECTS[effectType as keyof typeof COMMAND_PARTICLE_EFFECTS] || COMMAND_PARTICLE_EFFECTS.default;
+  
+  // Determine particle count
+  const particleCount = effect.count;
+  
+  for (let i = 0; i < particleCount; i++) {
+    // Initial position (may be modified by pattern)
+    let particleX = x + width / 2; // Start from center for most patterns
+    let particleY = y + height / 2;
     
-    // Random velocity (fountain-like effect)
-    const angle = Math.random() * Math.PI * 2; // Random angle
-    const speed = 1 + Math.random() * 3; // Random speed
-    const vx = Math.cos(angle) * speed;
-    const vy = Math.sin(angle) * speed - 2; // Upward bias for fountain effect
+    // Determine velocity based on pattern
+    let vx = 0;
+    let vy = 0;
     
-    // Random color from palette
-    const color = PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)];
+    switch (effect.pattern) {
+      case 'directional':
+        // Particles move primarily rightward (like cd command)
+        vx = effect.speed[0] + Math.random() * (effect.speed[1] - effect.speed[0]);
+        vy = (Math.random() - 0.5) * effect.speed[1];
+        break;
+        
+      case 'expand':
+        // Particles expand in all directions (like ls command)
+        {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = effect.speed[0] + Math.random() * (effect.speed[1] - effect.speed[0]);
+          vx = Math.cos(angle) * speed;
+          vy = Math.sin(angle) * speed;
+        }
+        break;
+        
+      case 'cascade':
+        // Particles cascade downward (like print commands)
+        vx = (Math.random() - 0.5) * effect.speed[1];
+        vy = effect.speed[0] + Math.random() * (effect.speed[1] - effect.speed[0]);
+        break;
+        
+      case 'burst':
+        // Particles burst outward from center (like create commands)
+        {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = effect.speed[0] + Math.random() * (effect.speed[1] - effect.speed[0]);
+          vx = Math.cos(angle) * speed;
+          vy = Math.sin(angle) * speed;
+        }
+        break;
+        
+      case 'implode':
+        // Particles move inward (like delete commands)
+        {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = Math.random() * width / 2;
+          particleX = x + width / 2 + Math.cos(angle) * distance;
+          particleY = y + height / 2 + Math.sin(angle) * distance;
+          vx = -Math.cos(angle) * effect.speed[0];
+          vy = -Math.sin(angle) * effect.speed[0];
+        }
+        break;
+        
+      case 'duplicate':
+        // Particles split and duplicate (like copy commands)
+        {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = effect.speed[0] + Math.random() * (effect.speed[1] - effect.speed[0]);
+          vx = Math.cos(angle) * speed;
+          vy = Math.sin(angle) * speed;
+          // For duplicate effect, we'll create particles in pairs
+          if (i % 2 === 0) {
+            particleX = x + Math.random() * width;
+            particleY = y + Math.random() * height;
+          }
+        }
+        break;
+        
+      case 'transform':
+        // Particles transform (like rename/move commands)
+        {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = effect.speed[0] + Math.random() * (effect.speed[1] - effect.speed[0]);
+          vx = Math.cos(angle) * speed;
+          vy = Math.sin(angle) * speed;
+        }
+        break;
+        
+      case 'fountain':
+      default:
+        // Standard fountain effect (default)
+        {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = effect.speed[0] + Math.random() * (effect.speed[1] - effect.speed[0]);
+          vx = Math.cos(angle) * speed;
+          vy = Math.sin(angle) * speed - 2; // Upward bias
+        }
+        break;
+    }
     
-    // Random size
-    const size = 2 + Math.random() * 4;
+    // Determine color
+    let color;
+    if (effect.color === 'random') {
+      color = PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)];
+    } else {
+      color = effect.color;
+    }
+    
+    // Random size within range
+    const size = effect.size[0] + Math.random() * (effect.size[1] - effect.size[0]);
     
     // Random lifetime
     const life = PARTICLE_MAX_LIFE * (0.5 + Math.random() * 0.5);
@@ -525,7 +1326,8 @@ export const createExplosion = (x: number, y: number, width: number, height: num
       color,
       size,
       life,
-      maxLife: life
+      maxLife: life,
+      gravity: effect.gravity
     });
   }
   

@@ -8,6 +8,13 @@ import {
   BOSS_SPAWN_INTERVAL
 } from '../utils/gameUtils';
 
+// Declare the focusTerminal function on the window object
+declare global {
+  interface Window {
+    focusTerminal?: () => void;
+  }
+}
+
 export const useGameLoop = () => {
   // Core state
   const [gameState, setGameState] = useState<GameState>(initializeGameState());
@@ -115,20 +122,22 @@ export const useGameLoop = () => {
       
       // Spawn enemies
       if (timestamp - lastEnemySpawnRef.current >= ENEMY_SPAWN_INTERVAL) {
-        const newEnemy = createEnemy(updatedState.currentTier);
+        const { enemy: newEnemy, updatedFileSystem } = createEnemy(updatedState.currentTier, false, updatedState);
         updatedState = {
           ...updatedState,
-          enemies: [...updatedState.enemies, newEnemy]
+          enemies: [...updatedState.enemies, newEnemy],
+          fileSystem: updatedFileSystem
         };
         lastEnemySpawnRef.current = timestamp;
       }
       
       // Spawn bosses
       if (timestamp - lastBossSpawnRef.current >= BOSS_SPAWN_INTERVAL) {
-        const newBoss = createEnemy(updatedState.currentTier, true);
+        const { enemy: newBoss, updatedFileSystem } = createEnemy(updatedState.currentTier, true, updatedState);
         updatedState = {
           ...updatedState,
-          enemies: [...updatedState.enemies, newBoss]
+          enemies: [...updatedState.enemies, newBoss],
+          fileSystem: updatedFileSystem
         };
         lastBossSpawnRef.current = timestamp;
       }

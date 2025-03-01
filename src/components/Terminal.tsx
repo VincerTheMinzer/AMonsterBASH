@@ -36,7 +36,7 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
     }
     
     // Generate suggestions
-    const suggestions = generateSuggestions(newInput, gameState.currentTier);
+    const suggestions = generateSuggestions(newInput, gameState.currentTier, gameState);
     onInputProcessed({
       ...gameState,
       currentInput: newInput,
@@ -62,7 +62,62 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
       // Prevent default tab behavior (focus change)
       e.preventDefault();
       
-      // If we have visible filenames, cycle through them
+      // If we have a command and there are items in the current directory
+      const currentDir = gameState.fileSystem.currentPath;
+      const currentPathStr = currentDir.length === 0 ? '/' : '/' + currentDir.join('/');
+      
+      // Check if this directory has been explored
+      if (gameState.fileSystem.exploredDirectories.includes(currentPathStr)) {
+        // Get the current command parts
+        const parts = input.trim().split(' ');
+        const command = parts[0];
+        const partialName = parts.length > 1 ? parts[1] : '';
+        
+        // If we have a command, cycle through file explorer items
+        if (command) {
+          // Get visible items from the current directory
+          const visibleItems = gameState.fileSystem.root;
+          let currentItems = visibleItems;
+          
+          // Navigate to current directory
+          for (const dir of currentDir) {
+            const found = currentItems.content?.find(item => 
+              item.type === 'directory' && item.name === dir
+            );
+            
+            if (found && found.type === 'directory') {
+              currentItems = found;
+            }
+          }
+          
+          // Filter items based on partial name if provided
+          const filteredItems = (currentItems.content || [])
+            .filter(item => !partialName || item.name.startsWith(partialName))
+            .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+          
+          if (filteredItems.length > 0) {
+            // Get the next item in the cycle
+            const nextIndex = (gameState.tabIndex + 1) % filteredItems.length;
+            const nextItem = filteredItems[nextIndex];
+            
+            // Create the new command with the item name
+            const newInput = `${command} ${nextItem.name}`;
+            setInput(newInput);
+            
+            // Update game state with the new input and tab index
+            onInputProcessed({
+              ...gameState,
+              currentInput: newInput,
+              tabIndex: nextIndex,
+              suggestions: []
+            });
+            
+            return;
+          }
+        }
+      }
+      
+      // Fall back to cycling through visible filenames if no directory items match
       if (gameState.visibleFilenames.length > 0) {
         // Get the current command parts
         const parts = input.trim().split(' ');
@@ -112,7 +167,7 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
           setInput(targetCommand);
           
           // Update game state with the new input
-          const suggestions = generateSuggestions(targetCommand, gameState.currentTier);
+          const suggestions = generateSuggestions(targetCommand, gameState.currentTier, gameState);
           onInputProcessed({
             ...gameState,
             currentInput: targetCommand,
@@ -124,7 +179,7 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
         setInput(gameState.suggestions[0]);
         
         // Update game state with the new input
-        const suggestions = generateSuggestions(gameState.suggestions[0], gameState.currentTier);
+        const suggestions = generateSuggestions(gameState.suggestions[0], gameState.currentTier, gameState);
         onInputProcessed({
           ...gameState,
           currentInput: gameState.suggestions[0],
@@ -149,8 +204,78 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
     }
   }, []);
 
+  // Generate a hint for the closest enemy
+  const getClosestEnemyHint = () => {
+    if (!gameState.isStarted || gameState.isPaused || gameState.isGameOver || !gameState.enemies.length) {
+      return null;
+    }
+    
+    // Find the closest enemy (lowest x value)
+    const closestEnemy = [...gameState.enemies]
+      .filter(enemy => enemy.isActive)
+      .sort((a, b) => a.x - b.x)[0];
+    
+    if (!closestEnemy) return null;
+    
+    // Generate a hint based on the command type
+    const command = closestEnemy.command.command;
+    const filename = closestEnemy.filename;
+    
+    // Check if this is a standalone command
+    const isStandaloneCommand = ['ls', 'pwd', 'clear', 'history'].includes(command);
+    
+    if (isStandaloneCommand) {
+      return `You need to run the '${command}' command to see what's in this directory.`;
+    }
+    
+    if (command === 'cd') {
+      return `You want to change to the '${filename}' directory using 'cd ${filename}'.`;
+    }
+    
+    if (command === 'cat') {
+      return `You want to view the contents of '${filename}' using 'cat ${filename}'.`;
+    }
+    
+    if (command === 'rm') {
+      return `You want to delete the file '${filename}' using 'rm ${filename}'.`;
+    }
+    
+    if (command === 'mv') {
+      // Find a suitable destination directory
+      const currentPath = gameState.fileSystem.currentPath;
+      let destinationDir = '/home/user';
+      
+      // Check file extension to suggest appropriate destination
+      if (filename.endsWith('.mp4') || filename.endsWith('.mkv') || filename.endsWith('.webm')) {
+        destinationDir = '/home/user/videos';
+      } else if (filename.endsWith('.jpg') || filename.endsWith('.png')) {
+        destinationDir = '/home/user/pictures';
+      } else if (filename.endsWith('.mp3') || filename.endsWith('.flac') || filename.endsWith('.wav')) {
+        destinationDir = '/home/user/music';
+      } else if (filename.endsWith('.pdf') || filename.endsWith('.docx') || filename.endsWith('.txt')) {
+        destinationDir = '/home/user/documents';
+      }
+      
+      return `You want to move '${filename}' to ${destinationDir} using 'mv ${filename} ${destinationDir}'.`;
+    }
+    
+    if (command === 'cp') {
+      return `You want to copy '${filename}' to a backup location using 'cp ${filename} ${filename}.backup'.`;
+    }
+    
+    // Generic hint for other commands
+    return `You need to use '${command}' on '${filename}'.`;
+  };
+  
+  const hint = getClosestEnemyHint();
+
   return (
     <div className="relative w-full">
+      {hint && (
+        <div className="absolute bottom-full mb-6 w-full text-center text-yellow-300 bg-gray-900 bg-opacity-70 py-1 px-2 rounded">
+          <span className="text-sm">{hint}</span>
+        </div>
+      )}
       <input
         ref={inputRef}
         type="text"
