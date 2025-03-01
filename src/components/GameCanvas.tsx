@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { GameState, Enemy } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, CONSOLE_HEIGHT, GAME_AREA_HEIGHT, formatTime } from '../utils/gameUtils';
+import { drawCommandIcon } from '../utils/iconUtils';
 
 interface GameCanvasProps {
   gameState: GameState;
@@ -62,9 +63,25 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
     gameState.enemies.forEach(enemy => {
       if (!enemy.isActive) return;
 
-      // Draw enemy
-      ctx.fillStyle = enemy.isBoss ? '#f38ba8' : '#f9e2af';
+      // Draw enemy with command icon
+      const iconColor = enemy.isBoss ? '#f38ba8' : '#f9e2af';
+      
+      // Draw background rectangle
+      ctx.fillStyle = iconColor;
       ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+      
+      // Draw command icon if available
+      if (enemy.command.icon) {
+        drawCommandIcon(
+          ctx,
+          enemy.x,
+          enemy.y,
+          enemy.width,
+          enemy.height,
+          enemy.command.icon,
+          enemy.isBoss ? '#1e1e2e' : '#1e1e2e' // Dark color for contrast
+        );
+      }
 
       // Check if this enemy is the current target
       const isTargetEnemy = gameState.targetEnemy && gameState.targetEnemy.id === enemy.id;

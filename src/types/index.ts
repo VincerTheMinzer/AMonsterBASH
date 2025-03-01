@@ -9,6 +9,7 @@ export interface Command {
   command: string;
   description: string;
   tier: CommandTier;
+  icon?: string; // Icon identifier for the command
 }
 
 export interface Enemy {
