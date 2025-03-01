@@ -167,6 +167,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
       // Measure filename width for background
       const filenameWidth = ctx.measureText(enemy.filename).width;
       
+      // Check if this enemy's filename is being targeted by the current input
+      const isFilenameTargeted = gameState.currentInput.includes(enemy.filename);
+      
       // Draw filename background
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(
@@ -176,13 +179,53 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
         20
       );
       
-      // Draw filename text
-      ctx.fillStyle = '#89b4fa'; // Blue color for filenames
+      // Draw filename text with appropriate color
+      ctx.fillStyle = isFilenameTargeted ? '#a6e3a1' : '#89b4fa'; // Green if targeted, blue otherwise
       ctx.fillText(
         enemy.filename,
         enemy.x + enemy.width / 2,
         enemy.y + enemy.height + 15
       );
+      
+      // Draw corners around the filename if it's targeted
+      if (isFilenameTargeted) {
+        const cornerSize = 5;
+        const cornerX1 = enemy.x + enemy.width / 2 - filenameWidth / 2 - padding;
+        const cornerX2 = enemy.x + enemy.width / 2 + filenameWidth / 2 + padding;
+        const cornerY1 = enemy.y + enemy.height + 5 - padding;
+        const cornerY2 = enemy.y + enemy.height + 5 + 20;
+        
+        ctx.strokeStyle = '#a6e3a1'; // Green color for corners
+        ctx.lineWidth = 2;
+        
+        // Top-left corner
+        ctx.beginPath();
+        ctx.moveTo(cornerX1, cornerY1 + cornerSize);
+        ctx.lineTo(cornerX1, cornerY1);
+        ctx.lineTo(cornerX1 + cornerSize, cornerY1);
+        ctx.stroke();
+        
+        // Top-right corner
+        ctx.beginPath();
+        ctx.moveTo(cornerX2 - cornerSize, cornerY1);
+        ctx.lineTo(cornerX2, cornerY1);
+        ctx.lineTo(cornerX2, cornerY1 + cornerSize);
+        ctx.stroke();
+        
+        // Bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(cornerX1, cornerY2 - cornerSize);
+        ctx.lineTo(cornerX1, cornerY2);
+        ctx.lineTo(cornerX1 + cornerSize, cornerY2);
+        ctx.stroke();
+        
+        // Bottom-right corner
+        ctx.beginPath();
+        ctx.moveTo(cornerX2 - cornerSize, cornerY2);
+        ctx.lineTo(cornerX2, cornerY2);
+        ctx.lineTo(cornerX2, cornerY2 - cornerSize);
+        ctx.stroke();
+      }
 
       // Draw boss health bar if it's a boss
       if (enemy.isBoss) {
