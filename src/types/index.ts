@@ -27,6 +27,7 @@ export interface Enemy {
   isBoss: boolean;
   commandSequence?: Command[];
   currentCommandIndex?: number;
+  filename: string; // Filename associated with the enemy
 }
 
 export interface Player {

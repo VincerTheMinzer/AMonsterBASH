@@ -64,6 +64,40 @@ export const initializeGameState = (): GameState => ({
 export const MIN_SPAWN_HEIGHT = 100; // Minimum height from top to spawn enemies
 export const MAX_SPAWN_HEIGHT_PERCENTAGE = 0.7; // Maximum percentage of game area height for spawning
 
+// File extensions for different command tiers
+const FILE_EXTENSIONS = {
+  [CommandTier.BEGINNER]: ['.txt', '.log', '.md', '.csv', '.json'],
+  [CommandTier.INTERMEDIATE]: ['.js', '.py', '.html', '.css', '.xml'],
+  [CommandTier.ADVANCED]: ['.cpp', '.java', '.go', '.rs', '.php'],
+  [CommandTier.PRO]: ['.sh', '.bash', '.conf', '.yml', '.toml']
+};
+
+// Generate a random filename
+const generateRandomFilename = (tier: CommandTier): string => {
+  // Random name prefixes
+  const prefixes = [
+    'data', 'config', 'user', 'system', 'app', 
+    'server', 'client', 'backup', 'temp', 'log',
+    'file', 'doc', 'report', 'project', 'test'
+  ];
+  
+  // Random name suffixes
+  const suffixes = [
+    '', '1', '2', '3', '_old', '_new', '_backup', 
+    '_temp', '_final', '_draft', '_v1', '_v2'
+  ];
+  
+  // Get random prefix and suffix
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+  
+  // Get random extension for the tier
+  const extensions = FILE_EXTENSIONS[tier];
+  const extension = extensions[Math.floor(Math.random() * extensions.length)];
+  
+  return `${prefix}${suffix}${extension}`;
+};
+
 // Create a new enemy
 export const createEnemy = (tier: CommandTier, isBoss: boolean = false): Enemy => {
   const id = uuidv4();
@@ -76,6 +110,9 @@ export const createEnemy = (tier: CommandTier, isBoss: boolean = false): Enemy =
   
   // Generate y position within the restricted range
   const y = minY + Math.random() * spawnRange;
+  
+  // Generate a random filename
+  const filename = generateRandomFilename(tier);
   
   if (isBoss) {
     const commandSequence = getRandomCommandSequence(tier, 3);
@@ -94,7 +131,8 @@ export const createEnemy = (tier: CommandTier, isBoss: boolean = false): Enemy =
       width: BOSS_WIDTH,
       height: BOSS_HEIGHT,
       isActive: true,
-      isBoss: true
+      isBoss: true,
+      filename
     };
   }
   
@@ -111,21 +149,31 @@ export const createEnemy = (tier: CommandTier, isBoss: boolean = false): Enemy =
     width: ENEMY_WIDTH,
     height: ENEMY_HEIGHT,
     isActive: true,
-    isBoss: false
+    isBoss: false,
+    filename
   };
 };
 
 // Check if a command matches an enemy
 export const checkCommandMatch = (input: string, enemy: Enemy): boolean => {
+  const trimmedInput = input.trim();
+  
   if (enemy.isBoss) {
     if (enemy.commandSequence && enemy.currentCommandIndex !== undefined) {
       const currentCommand = enemy.commandSequence[enemy.currentCommandIndex];
-      return input.trim() === currentCommand.command;
+      
+      // Check for command with filename
+      const commandWithFilename = `${currentCommand.command} ${enemy.filename}`;
+      
+      return trimmedInput === currentCommand.command || trimmedInput === commandWithFilename;
     }
     return false;
   }
   
-  return input.trim() === enemy.command.command;
+  // For regular enemies, check both plain command and command with filename
+  const commandWithFilename = `${enemy.command.command} ${enemy.filename}`;
+  
+  return trimmedInput === enemy.command.command || trimmedInput === commandWithFilename;
 };
 
 // Process player input

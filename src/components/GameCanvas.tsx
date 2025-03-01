@@ -79,6 +79,26 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
         // Pulse animation based on textAnimationTime
         const pulse = Math.sin(gameState.textAnimationTime / 100) * 2;
         fontSize += pulse;
+        
+        // Draw tab completion indicator
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#a6e3a1';
+        ctx.textAlign = 'center';
+        
+        // If input exactly matches the command, show that tab will add filename
+        if (currentInput === commandText) {
+          ctx.fillText(
+            '[TAB] to add filename',
+            enemy.x + enemy.width / 2,
+            enemy.y - 35
+          );
+        } else {
+          ctx.fillText(
+            '[TAB] to complete',
+            enemy.x + enemy.width / 2,
+            enemy.y - 35
+          );
+        }
       }
       
       ctx.font = `${enemy.isBoss ? 'bold' : ''} ${fontSize}px monospace`;
@@ -122,6 +142,30 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
         ctx.textAlign = 'center';
         ctx.fillText(commandText, enemy.x + enemy.width / 2, enemy.y - 15);
       }
+      
+      // Draw filename below the enemy
+      ctx.font = `12px monospace`;
+      ctx.textAlign = 'center';
+      
+      // Measure filename width for background
+      const filenameWidth = ctx.measureText(enemy.filename).width;
+      
+      // Draw filename background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(
+        enemy.x + enemy.width / 2 - filenameWidth / 2 - padding,
+        enemy.y + enemy.height + 5 - padding,
+        filenameWidth + padding * 2,
+        20
+      );
+      
+      // Draw filename text
+      ctx.fillStyle = '#89b4fa'; // Blue color for filenames
+      ctx.fillText(
+        enemy.filename,
+        enemy.x + enemy.width / 2,
+        enemy.y + enemy.height + 15
+      );
 
       // Draw boss health bar if it's a boss
       if (enemy.isBoss) {

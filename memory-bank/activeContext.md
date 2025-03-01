@@ -19,6 +19,11 @@ The project is currently in active development with a functional game loop and c
   - Animated text highlighting for commands being typed
   - Text scaling animation for targeted enemies
   - Color highlighting for matched portions of commands
+- Added filename-based features:
+  - Random filenames displayed under enemies
+  - Commands can target enemies using filenames (e.g., "cd filename.txt")
+  - Tab completion for commands and filenames
+  - Double-tap tab to add filename to command
 
 ## Active Decisions
 

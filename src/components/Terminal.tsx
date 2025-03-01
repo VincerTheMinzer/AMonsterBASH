@@ -58,6 +58,51 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
         onInputProcessed(newState);
         setInput('');
       }
+    } else if (e.key === 'Tab') {
+      // Prevent default tab behavior (focus change)
+      e.preventDefault();
+      
+      // Handle tab completion
+      if (gameState.targetEnemy) {
+        // Check if we should complete with command only or command + filename
+        const currentInput = input.trim();
+        const targetCommand = gameState.targetEnemy.command.command;
+        
+        // If the input already matches the command exactly, add the filename
+        if (currentInput === targetCommand) {
+          const fullCommand = `${targetCommand} ${gameState.targetEnemy.filename}`;
+          setInput(fullCommand);
+          
+          // Update game state with the new input
+          onInputProcessed({
+            ...gameState,
+            currentInput: fullCommand,
+            suggestions: []
+          });
+        } else {
+          // Otherwise just complete the command
+          setInput(targetCommand);
+          
+          // Update game state with the new input
+          const suggestions = generateSuggestions(targetCommand, gameState.currentTier);
+          onInputProcessed({
+            ...gameState,
+            currentInput: targetCommand,
+            suggestions
+          });
+        }
+      } else if (gameState.suggestions.length > 0) {
+        // Complete with the first suggestion
+        setInput(gameState.suggestions[0]);
+        
+        // Update game state with the new input
+        const suggestions = generateSuggestions(gameState.suggestions[0], gameState.currentTier);
+        onInputProcessed({
+          ...gameState,
+          currentInput: gameState.suggestions[0],
+          suggestions
+        });
+      }
     }
   };
 
@@ -83,7 +128,7 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
         type="text"
         value={input}
         onChange={handleInputChange}
-        onKeyPress={handleKeyPress}
+        onKeyDown={handleKeyPress}
         disabled={gameState.isGameOver || gameState.isPaused || !gameState.isStarted}
         autoFocus={gameState.isStarted}
         className="w-full bg-transparent text-white outline-none absolute opacity-0"

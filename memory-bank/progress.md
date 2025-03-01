@@ -41,6 +41,11 @@
   - ✅ Text animation for commands being typed
   - ✅ Highlighting of matched command portions
   - ✅ Pulsing animation for targeted enemies
+- ✅ Filename-based features:
+  - ✅ Random filenames displayed under enemies
+  - ✅ Command targeting with filenames (e.g., "cd filename.txt")
+  - ✅ Tab completion for commands
+  - ✅ Double-tab to add filename to command
 
 ## In Progress Features
 
