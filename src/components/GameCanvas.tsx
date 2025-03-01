@@ -66,15 +66,62 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
       ctx.fillStyle = enemy.isBoss ? '#f38ba8' : '#f9e2af';
       ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
 
-      // Draw command text above enemy
-      ctx.font = enemy.isBoss ? 'bold 14px monospace' : '12px monospace';
-      ctx.fillStyle = '#cdd6f4';
+      // Check if this enemy is the current target
+      const isTargetEnemy = gameState.targetEnemy && gameState.targetEnemy.id === enemy.id;
+      
+      // Draw command text above enemy with background for better readability
+      const commandText = enemy.command.command;
+      const currentInput = gameState.currentInput;
+      
+      // Determine font size with animation for target enemy
+      let fontSize = enemy.isBoss ? 16 : 14;
+      if (isTargetEnemy) {
+        // Pulse animation based on textAnimationTime
+        const pulse = Math.sin(gameState.textAnimationTime / 100) * 2;
+        fontSize += pulse;
+      }
+      
+      ctx.font = `${enemy.isBoss ? 'bold' : ''} ${fontSize}px monospace`;
       ctx.textAlign = 'center';
-      ctx.fillText(
-        enemy.command.command,
-        enemy.x + enemy.width / 2,
-        enemy.y - 10
+      
+      // Measure text width for background
+      const textWidth = ctx.measureText(commandText).width;
+      const padding = 4;
+      
+      // Draw text background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(
+        enemy.x + enemy.width / 2 - textWidth / 2 - padding,
+        enemy.y - 25 - padding,
+        textWidth + padding * 2,
+        20
       );
+      
+      // For target enemy, highlight the matched part of the command
+      if (isTargetEnemy && currentInput.length > 0) {
+        // Draw the matched part with highlight
+        const matchedText = commandText.substring(0, currentInput.length);
+        const remainingText = commandText.substring(currentInput.length);
+        
+        // Calculate positions
+        const matchedWidth = ctx.measureText(matchedText).width;
+        const fullWidth = ctx.measureText(commandText).width;
+        const startX = enemy.x + enemy.width / 2 - fullWidth / 2;
+        
+        // Draw matched part with highlight color
+        ctx.fillStyle = '#a6e3a1'; // Highlight color
+        ctx.textAlign = 'left';
+        ctx.fillText(matchedText, startX, enemy.y - 15);
+        
+        // Draw remaining part with normal color
+        ctx.fillStyle = enemy.isBoss ? '#f9e2af' : '#cdd6f4';
+        ctx.fillText(remainingText, startX + matchedWidth, enemy.y - 15);
+      } else {
+        // Draw normal command text
+        ctx.fillStyle = enemy.isBoss ? '#f9e2af' : '#cdd6f4';
+        ctx.textAlign = 'center';
+        ctx.fillText(commandText, enemy.x + enemy.width / 2, enemy.y - 15);
+      }
 
       // Draw boss health bar if it's a boss
       if (enemy.isBoss) {
@@ -97,20 +144,37 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
           bossHealthBarHeight
         );
 
-        // Draw command sequence for boss
+        // Draw command sequence for boss with improved readability
         if (enemy.commandSequence && enemy.currentCommandIndex !== undefined) {
-          ctx.font = '10px monospace';
-          ctx.fillStyle = '#bac2de';
+          ctx.font = '12px monospace';
           
           enemy.commandSequence.forEach((cmd, index) => {
             const isCompleted = index < enemy.currentCommandIndex!;
             const isCurrent = index === enemy.currentCommandIndex;
+            const sequenceText = cmd.command;
             
+            // Calculate position for each command in sequence
+            const yOffset = enemy.y - 40 - (enemy.commandSequence!.length - 1 - index) * 25;
+            
+            // Measure text width for background
+            const textWidth = ctx.measureText(sequenceText).width;
+            const padding = 4;
+            
+            // Draw text background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(
+              enemy.x + enemy.width / 2 - textWidth / 2 - padding,
+              yOffset - 10 - padding,
+              textWidth + padding * 2,
+              20
+            );
+            
+            // Draw command text with appropriate color
             ctx.fillStyle = isCompleted ? '#a6e3a1' : isCurrent ? '#f9e2af' : '#6c7086';
             ctx.fillText(
-              cmd.command,
+              sequenceText,
               enemy.x + enemy.width / 2,
-              enemy.y - 35 - (enemy.commandSequence!.length - 1 - index) * 15
+              yOffset
             );
           });
         }
@@ -193,6 +257,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
       ctx.fillText('Press ENTER to play again', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
     }
 
+    // Draw particles
+    gameState.particles.forEach(particle => {
+      // Calculate opacity based on remaining life
+      const opacity = particle.life / particle.maxLife;
+      
+      // Draw particle
+      ctx.fillStyle = particle.color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
     // Draw pause overlay
     if (gameState.isPaused) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';

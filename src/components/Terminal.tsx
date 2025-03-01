@@ -24,12 +24,25 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
     const newInput = e.target.value;
     setInput(newInput);
     
+    // Find potential target enemy based on input
+    let targetEnemy: typeof gameState.targetEnemy = null;
+    if (newInput) {
+      const foundEnemy = gameState.enemies.find(enemy => 
+        enemy.isActive && enemy.command.command.startsWith(newInput)
+      );
+      if (foundEnemy) {
+        targetEnemy = foundEnemy;
+      }
+    }
+    
     // Generate suggestions
     const suggestions = generateSuggestions(newInput, gameState.currentTier);
     onInputProcessed({
       ...gameState,
       currentInput: newInput,
-      suggestions
+      suggestions,
+      targetEnemy,
+      textAnimationTime: 0 // Reset animation time when input changes
     });
   };
 

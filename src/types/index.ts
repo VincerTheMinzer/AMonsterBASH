@@ -41,6 +41,17 @@ export interface Player {
   experienceToNextLevel: number;
 }
 
+export interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  life: number;
+  maxLife: number;
+}
+
 export interface GameState {
   player: Player;
   enemies: Enemy[];
@@ -56,4 +67,7 @@ export interface GameState {
   suggestions: string[];
   turretsEnabled: boolean;
   turretCooldown: number;
+  targetEnemy: Enemy | null; // Enemy currently being targeted
+  particles: Particle[]; // Particles for visual effects
+  textAnimationTime: number; // For animating text
 }

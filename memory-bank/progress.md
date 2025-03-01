@@ -33,7 +33,14 @@
 - ✅ Command suggestions based on partial input
 - ✅ Error feedback for incorrect commands
 - ✅ Command descriptions displayed at the bottom of the console
+- ✅ Improved command text visibility with backgrounds and larger font
+- ✅ Restricted enemy spawning area for better readability
 - ✅ Responsive layout for different screen sizes
+- ✅ Visual juice effects:
+  - ✅ Particle explosions when enemies are defeated
+  - ✅ Text animation for commands being typed
+  - ✅ Highlighting of matched command portions
+  - ✅ Pulsing animation for targeted enemies
 
 ## In Progress Features
 
@@ -80,9 +87,8 @@
 3. Command matching is currently case-sensitive, which may be frustrating for users
 
 ### User Experience
-1. Command suggestions may not be visible enough during gameplay
-2. Error messages could provide more helpful guidance
-3. Game difficulty progression may be too steep for some users
+1. Error messages could provide more helpful guidance
+2. Game difficulty progression may be too steep for some users
 
 ## Current Development Status
 

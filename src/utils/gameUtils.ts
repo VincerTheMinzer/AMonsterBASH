@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Command, CommandTier, Enemy, GameState, Player } from '../types';
+import { Command, CommandTier, Enemy, GameState, Particle, Player } from '../types';
 import { getRandomCommand, getRandomCommandSequence, getCommandsByTier } from '../data/commands';
 
 // Constants
@@ -54,14 +54,28 @@ export const initializeGameState = (): GameState => ({
   lastCommandDescription: null,
   suggestions: [],
   turretsEnabled: false,
-  turretCooldown: 0
+  turretCooldown: 0,
+  targetEnemy: null,
+  particles: [],
+  textAnimationTime: 0
 });
+
+// Constants for enemy spawning
+export const MIN_SPAWN_HEIGHT = 100; // Minimum height from top to spawn enemies
+export const MAX_SPAWN_HEIGHT_PERCENTAGE = 0.7; // Maximum percentage of game area height for spawning
 
 // Create a new enemy
 export const createEnemy = (tier: CommandTier, isBoss: boolean = false): Enemy => {
   const id = uuidv4();
   const x = CANVAS_WIDTH;
-  const y = Math.random() * (GAME_AREA_HEIGHT - (isBoss ? BOSS_HEIGHT : ENEMY_HEIGHT) - 20);
+  
+  // Calculate spawn area to avoid spawning too high
+  const minY = MIN_SPAWN_HEIGHT; // Minimum distance from top
+  const maxY = GAME_AREA_HEIGHT * MAX_SPAWN_HEIGHT_PERCENTAGE;
+  const spawnRange = maxY - minY - (isBoss ? BOSS_HEIGHT : ENEMY_HEIGHT);
+  
+  // Generate y position within the restricted range
+  const y = minY + Math.random() * spawnRange;
   
   if (isBoss) {
     const commandSequence = getRandomCommandSequence(tier, 3);
@@ -140,6 +154,8 @@ export const processInput = (input: string, gameState: GameState): GameState => 
   // Check for enemy matches
   let matchFound = false;
   let commandDescription: string | null = null;
+  let defeatedEnemy: Enemy | undefined = undefined;
+  let newParticles: Particle[] = [];
   
   const updatedEnemies = gameState.enemies.map(enemy => {
     if (!matchFound && enemy.isActive && checkCommandMatch(input, enemy)) {
@@ -152,6 +168,7 @@ export const processInput = (input: string, gameState: GameState): GameState => 
           
           if (newIndex >= enemy.commandSequence.length) {
             // Boss defeated
+            defeatedEnemy = { ...enemy };
             return {
               ...enemy,
               isActive: false
@@ -167,6 +184,7 @@ export const processInput = (input: string, gameState: GameState): GameState => 
         }
       } else {
         // Regular enemy defeated
+        defeatedEnemy = { ...enemy };
         return {
           ...enemy,
           isActive: false
@@ -175,6 +193,17 @@ export const processInput = (input: string, gameState: GameState): GameState => 
     }
     return enemy;
   });
+  
+  // Create particles for defeated enemy
+  if (defeatedEnemy) {
+    const enemy = defeatedEnemy as Enemy; // Type assertion
+    newParticles = createExplosion(
+      enemy.x,
+      enemy.y,
+      enemy.width,
+      enemy.height
+    );
+  }
   
   if (matchFound) {
     // Calculate score increase
@@ -188,7 +217,9 @@ export const processInput = (input: string, gameState: GameState): GameState => 
       score: gameState.score + scoreIncrease,
       currentInput: '',
       lastError: null,
-      lastCommandDescription: commandDescription
+      lastCommandDescription: commandDescription,
+      particles: [...gameState.particles, ...newParticles],
+      targetEnemy: null // Reset target enemy after successful command
     };
   } else {
     // Command didn't match any enemy
@@ -196,7 +227,8 @@ export const processInput = (input: string, gameState: GameState): GameState => 
       ...newGameState,
       currentInput: '',
       lastError: `Command not found: ${input}`,
-      lastCommandDescription: null
+      lastCommandDescription: null,
+      targetEnemy: null // Reset target enemy after failed command
     };
   }
 };
@@ -271,6 +303,12 @@ export const updateGameState = (gameState: GameState, deltaTime: number): GameSt
     }
   }
   
+  // Update particles
+  const updatedParticles = updateParticles(gameState.particles, deltaTime);
+  
+  // Update text animation time
+  const textAnimationTime = (gameState.textAnimationTime + deltaTime) % 1000;
+  
   return {
     ...gameState,
     timer: newTimer,
@@ -281,7 +319,9 @@ export const updateGameState = (gameState: GameState, deltaTime: number): GameSt
       health: newHealth
     },
     isGameOver,
-    turretCooldown
+    turretCooldown,
+    particles: updatedParticles,
+    textAnimationTime
   };
 };
 
@@ -309,4 +349,73 @@ export const formatTime = (milliseconds: number): string => {
   const seconds = totalSeconds % 60;
   
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+// Particle system
+export const PARTICLE_COLORS = ['#f38ba8', '#f9e2af', '#a6e3a1', '#89b4fa', '#cba6f7'];
+export const PARTICLE_COUNT = 30; // Number of particles to create per explosion
+export const PARTICLE_MAX_LIFE = 1000; // Maximum particle lifetime in ms
+
+// Create particles for an explosion effect
+export const createExplosion = (x: number, y: number, width: number, height: number): Particle[] => {
+  const particles: Particle[] = [];
+  
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // Random position within the enemy bounds
+    const particleX = x + Math.random() * width;
+    const particleY = y + Math.random() * height;
+    
+    // Random velocity (fountain-like effect)
+    const angle = Math.random() * Math.PI * 2; // Random angle
+    const speed = 1 + Math.random() * 3; // Random speed
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed - 2; // Upward bias for fountain effect
+    
+    // Random color from palette
+    const color = PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)];
+    
+    // Random size
+    const size = 2 + Math.random() * 4;
+    
+    // Random lifetime
+    const life = PARTICLE_MAX_LIFE * (0.5 + Math.random() * 0.5);
+    
+    particles.push({
+      x: particleX,
+      y: particleY,
+      vx,
+      vy,
+      color,
+      size,
+      life,
+      maxLife: life
+    });
+  }
+  
+  return particles;
+};
+
+// Update particles (move them and reduce their lifetime)
+export const updateParticles = (particles: Particle[], deltaTime: number): Particle[] => {
+  return particles
+    .map(particle => {
+      // Apply gravity
+      const vy = particle.vy + 0.1;
+      
+      // Update position
+      const x = particle.x + particle.vx * deltaTime / 16;
+      const y = particle.y + vy * deltaTime / 16;
+      
+      // Reduce lifetime
+      const life = particle.life - deltaTime;
+      
+      return {
+        ...particle,
+        x,
+        y,
+        vy,
+        life
+      };
+    })
+    .filter(particle => particle.life > 0); // Remove dead particles
 };

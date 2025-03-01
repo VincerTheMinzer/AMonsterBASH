@@ -12,6 +12,13 @@ The project is currently in active development with a functional game loop and c
 - Implemented pause, resume, and restart functionality
 - Added command suggestions for learning assistance
 - Added command description display at the bottom of the console
+- Improved enemy spawning to prevent enemies from appearing too high on screen
+- Enhanced command text readability with larger font size and background
+- Added visual juice features:
+  - Particle explosion effects when enemies are defeated
+  - Animated text highlighting for commands being typed
+  - Text scaling animation for targeted enemies
+  - Color highlighting for matched portions of commands
 
 ## Active Decisions
 
