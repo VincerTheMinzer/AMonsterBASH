@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState } from '../types';
 import { processInput, generateSuggestions } from '../utils/gameUtils';
+import { updateSpriteOnInput } from '../utils/spriteUtils';
 
 interface TerminalProps {
   gameState: GameState;
@@ -35,6 +36,9 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
       }
     }
     
+    // Update sprite animation on input
+    const updatedSpriteAnimation = updateSpriteOnInput(gameState.player.spriteAnimation);
+    
     // Generate suggestions
     const suggestions = generateSuggestions(newInput, gameState.currentTier, gameState);
     onInputProcessed({
@@ -42,19 +46,33 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
       currentInput: newInput,
       suggestions,
       targetEnemy,
-      textAnimationTime: 0 // Reset animation time when input changes
+      textAnimationTime: 0, // Reset animation time when input changes
+      player: {
+        ...gameState.player,
+        spriteAnimation: updatedSpriteAnimation
+      }
     });
   };
 
   // Handle key press
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Update sprite animation on any key press
+    const updatedSpriteAnimation = updateSpriteOnInput(gameState.player.spriteAnimation);
+    const updatedGameState = {
+      ...gameState,
+      player: {
+        ...gameState.player,
+        spriteAnimation: updatedSpriteAnimation
+      }
+    };
+    
     if (e.key === 'Enter') {
       if (gameState.isGameOver) {
         // Restart game
         onRestart();
       } else {
         // Process command
-        const newState = processInput(input, gameState);
+        const newState = processInput(input, updatedGameState);
         onInputProcessed(newState);
         setInput('');
       }
@@ -222,7 +240,7 @@ const Terminal: React.FC<TerminalProps> = ({ gameState, onInputProcessed, onRest
     const filename = closestEnemy.filename;
     
     // Check if this is a standalone command
-    const isStandaloneCommand = ['ls', 'pwd', 'clear', 'history'].includes(command);
+    const isStandaloneCommand = ['ls', 'pwd', 'clear', 'history', 'cd'].includes(command);
     
     if (isStandaloneCommand) {
       return `You need to run the '${command}' command to see what's in this directory.`;

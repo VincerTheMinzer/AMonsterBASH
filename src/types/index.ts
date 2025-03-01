@@ -41,6 +41,12 @@ export interface Player {
   level: number;
   experience: number;
   experienceToNextLevel: number;
+  spriteAnimation: {
+    spriteIndex: number;
+    frameWidth: number;
+    frameHeight: number;
+    lastInputTime: number;
+  };
 }
 
 export interface Particle {

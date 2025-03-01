@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Command, CommandTier, Enemy, FileSystem, FileSystemItem, GameState, Particle, Player } from '../types';
 import { getRandomCommand, getRandomCommandSequence, getCommandsByTier } from '../data/commands';
+import { initializeSpriteAnimation } from './spriteUtils';
 
 // Constants
 export const CANVAS_WIDTH = 800;
@@ -36,7 +37,8 @@ export const initializePlayer = (): Player => ({
   height: PLAYER_HEIGHT,
   level: 1,
   experience: 0,
-  experienceToNextLevel: 100
+  experienceToNextLevel: 100,
+  spriteAnimation: initializeSpriteAnimation()
 });
 
 // Predefined file pools for different directories
@@ -396,7 +398,7 @@ const getFileFromPool = (dirPath: string[]): string => {
 };
 
 // Commands that don't require a filename
-const STANDALONE_COMMANDS_LIST = ['ls', 'pwd', 'clear', 'history'];
+const STANDALONE_COMMANDS_LIST = ['ls', 'pwd', 'clear', 'history', 'cd'];
 
 // Create a new enemy
 export const createEnemy = (tier: CommandTier, isBoss: boolean = false, gameState: GameState): { enemy: Enemy, updatedFileSystem: FileSystem } => {
@@ -572,17 +574,23 @@ export const getVisibleItems = (fileSystem: FileSystem): FileSystemItem[] => {
 };
 
 // Commands that don't require a filename
-const STANDALONE_COMMANDS = ['ls', 'pwd', 'clear', 'history'];
+const STANDALONE_COMMANDS = ['ls', 'pwd', 'clear', 'history', 'cd'];
 
 // Check if a command matches an enemy
 export const checkCommandMatch = (input: string, enemy: Enemy, gameState: GameState): boolean => {
   const trimmedInput = input.trim();
   
-  // Unconditionally destroy enemies with cd, pwd, or ls commands if the corresponding command is given
-  if ((enemy.command.command === 'cd' && trimmedInput.startsWith('cd ')) ||
-      (enemy.command.command === 'ls' && trimmedInput === 'ls') ||
-      (enemy.command.command === 'pwd' && trimmedInput === 'pwd')) {
-    return true;
+  // For standalone commands like ls, pwd, etc.
+  if (STANDALONE_COMMANDS.includes(enemy.command.command)) {
+    // For cd, accept both "cd" and "cd <filename>"
+    if (enemy.command.command === 'cd') {
+      return trimmedInput === 'cd' || 
+             trimmedInput.startsWith('cd ') || 
+             trimmedInput === `cd ${enemy.filename}`;
+    }
+    
+    // For other standalone commands, just match the command
+    return trimmedInput === enemy.command.command;
   }
   
   if (enemy.isBoss) {
@@ -640,7 +648,7 @@ export const processFileSystemCommand = (input: string, gameState: GameState): G
     const targetDir = parts[1];
     
     // Handle cd with no arguments (go to root)
-    if (!targetDir || targetDir === '/') {
+    if (!targetDir || targetDir === '' || targetDir === '/') {
       return {
         ...gameState,
         fileSystem: {

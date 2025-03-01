@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { GameState, Enemy, FileSystemItem } from '../types';
 import { 
   CANVAS_WIDTH, 
@@ -11,6 +11,7 @@ import {
   getVisibleItems
 } from '../utils/gameUtils';
 import { drawCommandIcon } from '../utils/iconUtils';
+import { getSpriteCoordinates } from '../utils/spriteUtils';
 
 interface GameCanvasProps {
   gameState: GameState;
@@ -19,6 +20,26 @@ interface GameCanvasProps {
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [spriteImage, setSpriteImage] = useState<HTMLImageElement | null>(null);
+  
+  // Load sprite sheet
+  useEffect(() => {
+    const img = new Image();
+    img.src = 'guycoding.png';
+    img.onload = () => {
+      setSpriteImage(img);
+      
+      // Calculate frame dimensions once the image is loaded
+      if (gameState.player.spriteAnimation.frameWidth === 0) {
+        const frameWidth = img.width / 3;  // 3 columns
+        const frameHeight = img.height / 3; // 3 rows
+        
+        // Update player sprite animation with frame dimensions
+        gameState.player.spriteAnimation.frameWidth = frameWidth;
+        gameState.player.spriteAnimation.frameHeight = frameHeight;
+      }
+    };
+  }, []);
 
   // Draw the game
   useEffect(() => {
@@ -45,13 +66,36 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, onCanvasClick }) => 
     }
 
     // Draw player
-    ctx.fillStyle = '#89b4fa';
-    ctx.fillRect(
-      gameState.player.x,
-      gameState.player.y,
-      gameState.player.width,
-      gameState.player.height
-    );
+    if (spriteImage && gameState.player.spriteAnimation.frameWidth > 0) {
+      // Get sprite coordinates based on current sprite index
+      const { sourceX, sourceY } = getSpriteCoordinates(
+        gameState.player.spriteAnimation.spriteIndex,
+        gameState.player.spriteAnimation.frameWidth,
+        gameState.player.spriteAnimation.frameHeight
+      );
+      
+      // Draw the sprite
+      ctx.drawImage(
+        spriteImage,
+        sourceX,
+        sourceY,
+        gameState.player.spriteAnimation.frameWidth,
+        gameState.player.spriteAnimation.frameHeight,
+        gameState.player.x,
+        gameState.player.y,
+        gameState.player.width,
+        gameState.player.height
+      );
+    } else {
+      // Fallback to rectangle if sprite not loaded
+      ctx.fillStyle = '#89b4fa';
+      ctx.fillRect(
+        gameState.player.x,
+        gameState.player.y,
+        gameState.player.width,
+        gameState.player.height
+      );
+    }
 
     // Draw player health bar
     const healthBarWidth = 200;
